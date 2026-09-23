@@ -20,7 +20,7 @@ from typing import Any
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from agent import run_workflow  # noqa: E402
+from agent import run_workflow_with_details  # noqa: E402
 from scripts.test_agent_workflow import build_dataset  # noqa: E402
 
 
@@ -262,8 +262,14 @@ def main() -> int:
         dataset = root / "demo"
         dataset.mkdir()
         build_dataset(dataset)
-        response = run_workflow(dataset, output_dir=root / "runs")
+        execution = run_workflow_with_details(dataset, output_dir=root / "runs")
+        response = execution.response
         validate(response, recommendation_schema, recommendation_schema)
+        validate(
+            execution.item_details["SKU-001"],
+            item_schema,
+            item_schema,
+        )
         invalid_response = copy.deepcopy(response)
         invalid_response["recommendations"][0]["recommended_qty"] = -1
         expect_invalid(
@@ -278,4 +284,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -91,6 +91,32 @@ def main() -> int:
         assert baseline["summary"]["estimated_stockout_items"] == 1
         assert (output / f"{baseline['run_id']}.json").is_file()
 
+        fallback_dataset = root / "fallback"
+        fallback_dataset.mkdir()
+        build_dataset(fallback_dataset)
+        write_csv(
+            fallback_dataset / "in_transit.csv",
+            ["sku", "quantity", "expected_date"],
+            [],
+        )
+        short_sales = [
+            [f"2026-09-{day:02d}", "SKU-001", 10] for day in range(1, 7)
+        ]
+        write_csv(
+            fallback_dataset / "sales.csv",
+            ["date", "sku", "units"],
+            short_sales,
+        )
+        fallback = run_workflow(fallback_dataset, output_dir=output)
+        fallback_item = fallback["recommendations"][0]
+        assert fallback_item["in_transit"] == 0
+        assert fallback_item["seasonality_factor"] == 1.0
+        assert any("fallback uses 0" in reason for reason in fallback_item["reasons"])
+        assert any(
+            "Insufficient seasonal history" in reason
+            for reason in fallback_item["reasons"]
+        )
+
         try:
             run_workflow(
                 dataset,
@@ -108,4 +134,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

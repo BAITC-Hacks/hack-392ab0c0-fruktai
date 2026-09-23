@@ -45,6 +45,7 @@ The calculation workflow uses only the Python standard library. From the reposit
 python scripts/validate_api_contracts.py
 python scripts/test_agent_workflow.py
 python scripts/test_database.py
+python scripts/test_workflow_service.py
 ```
 
 The test creates an isolated temporary dataset, executes all seven workflow steps, verifies outlier and stockout handling, checks negative-inventory validation, persists a run, and confirms that increasing `on_hand` lowers the recommendation.

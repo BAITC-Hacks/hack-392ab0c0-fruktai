@@ -54,9 +54,17 @@ class WorkflowState:
     daily_sales: dict[str, dict[date, float]] = field(default_factory=dict)
     stockout_dates: dict[str, set[date]] = field(default_factory=dict)
     outlier_dates: dict[str, set[date]] = field(default_factory=dict)
-    metrics: dict[str, dict[str, float]] = field(default_factory=dict)
+    metrics: dict[str, dict[str, Any]] = field(default_factory=dict)
     recommendations: list[dict[str, Any]] = field(default_factory=list)
     anomaly_count: int = 0
+
+
+@dataclass(frozen=True)
+class WorkflowExecution:
+    """Public API response plus internal drill-down data for persistence."""
+
+    response: dict[str, Any]
+    item_details: dict[str, dict[str, Any]]
 
 
 class ReplenishmentOrchestrator:
@@ -75,6 +83,13 @@ class ReplenishmentOrchestrator:
         dataset_path: str | Path,
         overrides: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
+        return self.run_with_details(dataset_path, overrides).response
+
+    def run_with_details(
+        self,
+        dataset_path: str | Path,
+        overrides: list[dict[str, Any]] | None = None,
+    ) -> WorkflowExecution:
         self.steps = []
         state = WorkflowState(dataset_path=Path(dataset_path))
         run_id = str(uuid4())
@@ -94,7 +109,11 @@ class ReplenishmentOrchestrator:
                 lambda: self.calculate_recommendations(state),
             )
             result = self._build_result(run_id, generated_at, state)
-            self._run_step("validate_result", lambda: self.validate_result(result))
+            item_details = self._build_item_details(state)
+            self._run_step(
+                "validate_result",
+                lambda: self.validate_result(result, item_details),
+            )
             # save_result must be present in the persisted and returned journal.
             self.steps.append(
                 {
@@ -105,7 +124,7 @@ class ReplenishmentOrchestrator:
             )
             result["agent_steps"] = list(self.steps)
             self.save_result(result)
-            return result
+            return WorkflowExecution(response=result, item_details=item_details)
         except Exception as error:
             current_step = WORKFLOW_STEPS[min(len(self.steps), len(WORKFLOW_STEPS) - 1)]
             if not self.steps or self.steps[-1].get("status") != "failed":
@@ -295,8 +314,10 @@ class ReplenishmentOrchestrator:
                     if day not in outliers and day not in stockouts
                 ]
                 if len(recent_valid) >= 7 and len(previous_valid) >= 7:
-                    recent_mean = sum(daily.get(day, 0.0) for day in recent_14) / 14
-                    previous_mean = sum(daily.get(day, 0.0) for day in previous_14) / 14
+                    recent_mean = sum(daily.get(day, 0.0) for day in recent_valid) / 14
+                    previous_mean = sum(
+                        daily.get(day, 0.0) for day in previous_valid
+                    ) / 14
                     if previous_mean > 0:
                         growth = self._clamp(recent_mean / previous_mean, 1.0, 1.30)
 
@@ -308,6 +329,9 @@ class ReplenishmentOrchestrator:
                 "seasonality_factor": seasonality,
                 "growth_factor": growth,
                 "outlier_units_removed": outlier_units,
+                "baseline_daily_demand": baseline,
+                "calculation_start_date": first_day,
+                "calculation_end_date": last_day,
             }
         return f"Estimated lost demand for {compensated} products"
 
@@ -328,14 +352,19 @@ class ReplenishmentOrchestrator:
                 * metrics["growth_factor"]
             )
             safety_stock = average * self.safety_stock_days
+            forecast_value = self._round(forecast)
+            safety_stock_value = self._round(safety_stock)
             on_hand = state.inventory[sku]
             in_transit = state.in_transit.get(sku, 0)
-            raw_quantity = max(0.0, forecast + safety_stock - on_hand - in_transit)
+            raw_quantity = max(
+                0.0,
+                forecast_value + safety_stock_value - on_hand - in_transit,
+            )
             recommended = math.ceil(raw_quantity)
             available = on_hand + in_transit
-            if on_hand == 0 or available < forecast:
+            if on_hand == 0 or available < forecast_value:
                 urgency = "high"
-            elif available < forecast + safety_stock:
+            elif available < forecast_value + safety_stock_value:
                 urgency = "medium"
             else:
                 urgency = "low"
@@ -362,8 +391,8 @@ class ReplenishmentOrchestrator:
                     "in_transit": in_transit,
                     "lead_time_days": lead_time,
                     "avg_daily_demand": self._round(average),
-                    "forecast_demand": self._round(forecast),
-                    "safety_stock": self._round(safety_stock),
+                    "forecast_demand": forecast_value,
+                    "safety_stock": safety_stock_value,
                     "seasonality_factor": self._round(metrics["seasonality_factor"]),
                     "growth_factor": self._round(metrics["growth_factor"]),
                     "stockout_compensation": self._round(
@@ -379,7 +408,11 @@ class ReplenishmentOrchestrator:
         state.recommendations = recommendations
         return f"Calculated {len(recommendations)} recommendations"
 
-    def validate_result(self, result: dict[str, Any]) -> str:
+    def validate_result(
+        self,
+        result: dict[str, Any],
+        item_details: dict[str, dict[str, Any]] | None = None,
+    ) -> str:
         required = {"run_id", "generated_at", "summary", "recommendations", "agent_steps"}
         missing = required - result.keys()
         if missing:
@@ -387,6 +420,20 @@ class ReplenishmentOrchestrator:
         for item in result["recommendations"]:
             if not isinstance(item["recommended_qty"], int) or item["recommended_qty"] < 0:
                 raise DataValidationError(f"invalid recommended_qty for {item.get('sku')}")
+            expected_quantity = math.ceil(
+                max(
+                    0.0,
+                    item["forecast_demand"]
+                    + item["safety_stock"]
+                    - item["on_hand"]
+                    - item["in_transit"],
+                )
+            )
+            if item["recommended_qty"] != expected_quantity:
+                raise DataValidationError(
+                    f"formula mismatch for {item.get('sku')}: "
+                    f"expected {expected_quantity}, got {item['recommended_qty']}"
+                )
             for field in (
                 "avg_daily_demand",
                 "forecast_demand",
@@ -400,6 +447,20 @@ class ReplenishmentOrchestrator:
                 value = item[field]
                 if not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
                     raise DataValidationError(f"invalid {field} for {item.get('sku')}")
+        for sku, detail in (item_details or {}).items():
+            if detail.get("sku") != sku:
+                raise DataValidationError(f"item detail key mismatch for {sku}")
+            for point in detail.get("history", []):
+                for field in ("units", "estimated_lost_units"):
+                    value = point.get(field)
+                    if (
+                        not isinstance(value, (int, float))
+                        or not math.isfinite(value)
+                        or value < 0
+                    ):
+                        raise DataValidationError(
+                            f"invalid history {field} for {sku}"
+                        )
         return f"Validated {len(result['recommendations'])} recommendations"
 
     def save_result(self, result: dict[str, Any]) -> str:
@@ -433,6 +494,60 @@ class ReplenishmentOrchestrator:
             "recommendations": recommendations,
             "agent_steps": list(self.steps),
         }
+
+    def _build_item_details(
+        self, state: WorkflowState
+    ) -> dict[str, dict[str, Any]]:
+        recommendations = {item["sku"]: item for item in state.recommendations}
+        details: dict[str, dict[str, Any]] = {}
+        calculation_fields = (
+            "recommended_qty",
+            "on_hand",
+            "in_transit",
+            "lead_time_days",
+            "avg_daily_demand",
+            "forecast_demand",
+            "safety_stock",
+            "seasonality_factor",
+            "growth_factor",
+            "stockout_compensation",
+            "outlier_units_removed",
+            "days_of_cover",
+            "reasons",
+        )
+        for sku, recommendation in recommendations.items():
+            metrics = state.metrics.get(sku, self._zero_metrics())
+            daily = state.daily_sales.get(sku, {})
+            outliers = state.outlier_dates.get(sku, set())
+            stockouts = state.stockout_dates.get(sku, set())
+            start = metrics.get("calculation_start_date")
+            end = metrics.get("calculation_end_date")
+            if isinstance(start, date) and isinstance(end, date):
+                history_days = self._date_range(start, end)
+            else:
+                history_days = sorted(set(daily) | set(stockouts))
+            baseline = float(metrics.get("baseline_daily_demand", 0.0))
+            history = [
+                {
+                    "date": day.isoformat(),
+                    "units": self._round(daily.get(day, 0.0)),
+                    "is_outlier": day in outliers,
+                    "is_stockout": day in stockouts,
+                    "estimated_lost_units": self._round(
+                        baseline if day in stockouts else 0.0
+                    ),
+                }
+                for day in history_days
+            ]
+            details[sku] = {
+                "sku": sku,
+                "name": recommendation["name"],
+                "history": history,
+                "calculation": {
+                    field: recommendation[field] for field in calculation_fields
+                },
+            }
+        return details
 
     def _apply_overrides(
         self, state: WorkflowState, overrides: list[dict[str, Any]]
@@ -614,7 +729,7 @@ class ReplenishmentOrchestrator:
         return round(value + 1e-12, 2)
 
     @staticmethod
-    def _zero_metrics() -> dict[str, float]:
+    def _zero_metrics() -> dict[str, Any]:
         return {
             "calendar_days": 0.0,
             "avg_daily_demand": 0.0,
@@ -622,6 +737,9 @@ class ReplenishmentOrchestrator:
             "seasonality_factor": 1.0,
             "growth_factor": 1.0,
             "outlier_units_removed": 0.0,
+            "baseline_daily_demand": 0.0,
+            "calculation_start_date": None,
+            "calculation_end_date": None,
         }
 
 
@@ -634,8 +752,24 @@ def run_workflow(
 ) -> dict[str, Any]:
     """Run the complete workflow and return an API-compatible response."""
 
+    return run_workflow_with_details(
+        dataset_path=dataset_path,
+        overrides=overrides,
+        safety_stock_days=safety_stock_days,
+        output_dir=output_dir,
+    ).response
+
+
+def run_workflow_with_details(
+    dataset_path: str | Path,
+    overrides: list[dict[str, Any]] | None = None,
+    *,
+    safety_stock_days: int = 7,
+    output_dir: str | Path | None = None,
+) -> WorkflowExecution:
+    """Run the workflow and retain item drill-down data for persistence."""
+
     return ReplenishmentOrchestrator(
         safety_stock_days=safety_stock_days,
         output_dir=output_dir,
-    ).run(dataset_path=dataset_path, overrides=overrides)
-
+    ).run_with_details(dataset_path=dataset_path, overrides=overrides)

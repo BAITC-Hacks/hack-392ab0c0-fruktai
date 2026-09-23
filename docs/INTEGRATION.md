@@ -28,15 +28,26 @@ The frontend must not invent fields. Until the backend is available, it may use 
 Recommended function-level adapter:
 
 ```python
-from agent import DataValidationError, run_workflow
+from agent import WorkflowService
 
-result = run_workflow(
-    dataset_path="data/demo",
-    overrides=[override.model_dump(exclude_none=True) for override in request.overrides],
+service = WorkflowService(
+    data_root="data",
+    database_path="artifacts/fruktai.sqlite",
+    output_dir="artifacts/runs",
 )
+
+result = service.recalculate(
+    dataset=request.dataset,
+    overrides=[
+        override.model_dump(exclude_none=True)
+        for override in request.overrides
+    ],
+)
+
+item = service.get_item(sku)
 ```
 
-Map `DataValidationError` to HTTP `422` and a missing dataset to HTTP `404`. Do not catch a calculation failure and return placeholder recommendations.
+Map `DataValidationError` and database validation errors to HTTP `422`. Map `DatasetNotFoundError` and `RecordNotFoundError` to HTTP `404`. Do not catch a calculation failure and return placeholder recommendations.
 
 The backend owns:
 
@@ -73,4 +84,3 @@ For each integration merge:
 4. Run `python scripts/smoke_test.py --base-url http://localhost:8000`.
 5. Verify the dashboard uses the returned run and override result.
 6. Only then merge into the shared integration branch.
-

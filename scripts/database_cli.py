@@ -18,7 +18,7 @@ from typing import Any
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from agent import run_workflow  # noqa: E402
+from agent import run_workflow_with_details  # noqa: E402
 from database import (  # noqa: E402
     DatabaseError,
     database_stats,
@@ -100,12 +100,17 @@ def main() -> int:
             print_table([{"table": name, "rows": count} for name, count in counts.items()])
         elif arguments.command == "calculate":
             counts = load_csv_dataset(arguments.db, arguments.dataset_path)
-            result = run_workflow(
+            execution = run_workflow_with_details(
                 arguments.dataset_path,
                 output_dir=arguments.runs_dir,
             )
             dataset_name = arguments.dataset_name or arguments.dataset_path.name
-            run_id = save_calculation(arguments.db, dataset_name, result)
+            run_id = save_calculation(
+                arguments.db,
+                dataset_name,
+                execution.response,
+                item_details=execution.item_details,
+            )
             print(
                 f"Saved run {run_id} with {counts['products']} products "
                 f"to {arguments.db.resolve()}"
@@ -126,4 +131,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

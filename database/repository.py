@@ -31,6 +31,10 @@ class DatabaseError(RuntimeError):
     """Raised when import or persistence cannot preserve the data contract."""
 
 
+class RecordNotFoundError(DatabaseError):
+    """Raised when a requested persisted API resource does not exist."""
+
+
 @contextmanager
 def connect(database_path: str | Path) -> Iterator[sqlite3.Connection]:
     connection = sqlite3.connect(Path(database_path))
@@ -129,6 +133,7 @@ def save_calculation(
     dataset: str,
     result: dict[str, Any],
     overrides: list[dict[str, Any]] | None = None,
+    item_details: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     """Persist one successful API-compatible calculation response."""
 
@@ -236,6 +241,35 @@ def save_calculation(
                         step.get("message"),
                     ),
                 )
+
+            for sku, value in (item_details or {}).items():
+                detail = _required_mapping(value, f"item_details.{sku}")
+                if detail.get("sku") != sku:
+                    raise DatabaseError(f"item detail key mismatch for {sku}")
+                history = _required_list(
+                    detail.get("history"), f"item_details.{sku}.history"
+                )
+                for index, point_value in enumerate(history):
+                    point = _required_mapping(
+                        point_value, f"item_details.{sku}.history[{index}]"
+                    )
+                    connection.execute(
+                        """
+                        INSERT INTO item_history (
+                            run_id, sku, history_date, units,
+                            is_outlier, is_stockout, estimated_lost_units
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            run_id,
+                            sku,
+                            point.get("date"),
+                            point.get("units"),
+                            int(point.get("is_outlier") is True),
+                            int(point.get("is_stockout") is True),
+                            point.get("estimated_lost_units"),
+                        ),
+                    )
     except sqlite3.Error as error:
         raise DatabaseError(f"Cannot save calculation {run_id}: {error}") from error
     return run_id
@@ -284,6 +318,76 @@ def latest_agent_steps(database_path: str | Path) -> list[dict[str, Any]]:
         ORDER BY s.step_order
         """,
     )
+
+
+def latest_item_detail(
+    database_path: str | Path, sku: str
+) -> dict[str, Any]:
+    """Return the latest persisted item response in API-contract form."""
+
+    sku_value = _required_text(sku, "sku")
+    rows = _query(
+        database_path,
+        """
+        SELECT r.*, c.generated_at
+        FROM recommendations AS r
+        JOIN calculation_runs AS c ON c.run_id = r.run_id
+        WHERE r.sku = ? AND c.status = 'completed'
+        ORDER BY c.generated_at DESC, c.rowid DESC
+        LIMIT 1
+        """,
+        (sku_value,),
+    )
+    if not rows:
+        raise RecordNotFoundError(f"No calculated item found for SKU {sku_value}")
+    recommendation = rows[0]
+    history = _query(
+        database_path,
+        """
+        SELECT
+            history_date AS date,
+            units,
+            is_outlier,
+            is_stockout,
+            estimated_lost_units
+        FROM item_history
+        WHERE run_id = ? AND sku = ?
+        ORDER BY history_date
+        """,
+        (recommendation["run_id"], sku_value),
+    )
+    for point in history:
+        point["is_outlier"] = bool(point["is_outlier"])
+        point["is_stockout"] = bool(point["is_stockout"])
+    try:
+        reasons = json.loads(recommendation["reasons_json"])
+    except (TypeError, json.JSONDecodeError) as error:
+        raise DatabaseError(f"Invalid stored reasons for SKU {sku_value}") from error
+
+    calculation_fields = (
+        "recommended_qty",
+        "on_hand",
+        "in_transit",
+        "lead_time_days",
+        "avg_daily_demand",
+        "forecast_demand",
+        "safety_stock",
+        "seasonality_factor",
+        "growth_factor",
+        "stockout_compensation",
+        "outlier_units_removed",
+        "days_of_cover",
+    )
+    calculation = {
+        field: recommendation[field] for field in calculation_fields
+    }
+    calculation["reasons"] = reasons
+    return {
+        "sku": recommendation["sku"],
+        "name": recommendation["name"],
+        "history": history,
+        "calculation": calculation,
+    }
 
 
 def database_stats(database_path: str | Path) -> list[dict[str, Any]]:
