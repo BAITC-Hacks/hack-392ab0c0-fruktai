@@ -1,0 +1,29 @@
+.supplier-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+.supplier-card {
+  padding: 20px;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius);
+  background: white;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.supplier-card .helper {
+  overflow-wrap: anywhere;
+}
+.supplier-card dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.supplier-card dt {
+  color: var(--text-secondary);
+}
+.supplier-card dd {
+  margin: 0;
+  text-align: right;
+}

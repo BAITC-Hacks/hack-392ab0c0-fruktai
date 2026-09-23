@@ -9,7 +9,7 @@ import {
   type ScenarioDraft,
 } from '../utils/presentation';
 
-export type View = 'table' | 'overview' | 'data' | 'activity';
+export type View = 'table' | 'overview' | 'suppliers' | 'data' | 'activity';
 
 /** Owns API state, request ordering, selections and explicit what-if overrides. */
 export function useWorkspace() {
@@ -160,7 +160,7 @@ export function useWorkspace() {
         ? 'Источники данных'
         : view === 'activity'
           ? 'Ход анализа'
-          : grouped
+          : view === 'suppliers'
             ? 'Заказы по поставщикам'
             : 'План закупок';
 

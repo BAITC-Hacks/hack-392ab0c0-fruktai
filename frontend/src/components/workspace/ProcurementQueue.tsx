@@ -1,4 +1,4 @@
-import { LayoutGrid, Users, Search, ShieldCheck, Check, ChevronRight } from 'lucide-react';
+import { Users, Search, ShieldCheck, Check, ChevronRight } from 'lucide-react';
 import type { WorkspaceController } from '../../hooks/useWorkspace';
 import { initialFilters } from '../../utils/presentation';
 import { FiltersBar } from '../FiltersBar';
@@ -6,8 +6,7 @@ import { RecommendationsTable } from '../RecommendationsTable';
 
 export function ProcurementQueue({ workspace }: { workspace: WorkspaceController }) {
   const {
-    grouped,
-    setGrouped,
+    navigate,
     products,
     filters,
     setFilters,
@@ -27,23 +26,11 @@ export function ProcurementQueue({ workspace }: { workspace: WorkspaceController
     <section className="workspace-content" aria-label="Закупочная очередь">
       <div className="queue-heading">
         <div>
-          <h2>{grouped ? 'Очередь по поставщикам' : 'Рекомендации к проверке'}</h2>
+          <h2>Рекомендации к проверке</h2>
           <p>От риска — к решению. Откройте позицию, чтобы проверить расчёт.</p>
         </div>
-        <div className="segmented-control" aria-label="Группировка">
-          <button
-            className={!grouped ? 'active' : ''}
-            aria-pressed={!grouped}
-            onClick={() => setGrouped(false)}
-          >
-            <LayoutGrid size={15} />
-            Все позиции
-          </button>
-          <button
-            className={grouped ? 'active' : ''}
-            aria-pressed={grouped}
-            onClick={() => setGrouped(true)}
-          >
+        <div>
+          <button className="secondary-button" onClick={() => navigate('suppliers')}>
             <Users size={15} />
             По поставщикам
           </button>
@@ -64,7 +51,7 @@ export function ProcurementQueue({ workspace }: { workspace: WorkspaceController
           products={filtered}
           selected={selected}
           activeSku={activeProduct?.sku ?? null}
-          grouped={grouped}
+          grouped={false}
           sort={filters.sort}
           onSort={(sort) => setFilters({ ...filters, sort })}
           onOpen={setActiveProduct}

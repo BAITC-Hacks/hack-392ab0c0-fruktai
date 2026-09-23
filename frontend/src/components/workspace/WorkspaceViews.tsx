@@ -8,6 +8,7 @@ import { DataView } from '../DataView';
 import { LoadingState } from '../LoadingState';
 import { ProcurementQueue } from './ProcurementQueue';
 import { initialFilters } from '../../utils/presentation';
+import { SuppliersView } from './SuppliersView';
 
 export function WorkspaceViews({ workspace }: { workspace: WorkspaceController }) {
   const {
@@ -28,7 +29,7 @@ export function WorkspaceViews({ workspace }: { workspace: WorkspaceController }
     <>
       {' '}
       {loading && !data && <LoadingState />}
-      {data && (view === 'table' || view === 'overview') && (
+      {data && view === 'overview' && (
         <>
           {highRisk > 0 && (
             <div className="risk-banner">
@@ -50,7 +51,7 @@ export function WorkspaceViews({ workspace }: { workspace: WorkspaceController }
             </div>
           )}
           <KpiCards products={products} summary={data.response.summary} onSelect={chooseKpi} />
-          {view === 'overview' ? (
+          {
             <div className="overview-grid">
               <Analytics
                 products={products}
@@ -61,17 +62,11 @@ export function WorkspaceViews({ workspace }: { workspace: WorkspaceController }
               />
               <Comparison products={products} />
             </div>
-          ) : (
-            <ProcurementQueue workspace={workspace} />
-          )}
-          <AgentRunPanel
-            steps={data.response.agent_steps}
-            runId={data.response.run_id}
-            open={agentOpen}
-            onChange={setAgentOpen}
-          />
+          }
         </>
       )}
+      {data && view === 'table' && <ProcurementQueue workspace={workspace} />}
+      {data && view === 'suppliers' && <SuppliersView workspace={workspace} />}
       {view === 'data' && (
         <div className="sources-layout">
           <ImportPanel

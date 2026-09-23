@@ -28,7 +28,11 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceController 
               ? 'Проверенные источники — основа точной рекомендации.'
               : view === 'activity'
                 ? 'От исходных данных до объяснимого решения.'
-                : 'Нужный товар. В нужном количестве. Вовремя.'}
+                : view === 'overview'
+                  ? 'Показатели запасов, риски и аналитика текущего расчёта.'
+                  : view === 'suppliers'
+                    ? 'Сводка потребности и проверка заказа для каждого поставщика.'
+                    : 'Таблица товаров: фильтры, расчёты и проверка объёмов заказа.'}
           </p>
         </div>
         <div className="heading-actions">
@@ -41,7 +45,7 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceController 
             <RefreshCw size={16} className={loading ? 'is-spinning' : ''} />
             {loading ? 'Загрузка…' : 'Обновить данные'}
           </button>
-          {data && (
+          {data && view === 'table' && (
             <button className="primary-button" onClick={openReview} disabled={loading}>
               <ShoppingCart size={17} />
               Проверить заказ

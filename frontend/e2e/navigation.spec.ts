@@ -14,7 +14,9 @@ test('profile actions, navigation filters, journal and resized mobile menu', asy
     .getByRole('textbox', { name: 'Поиск по товару, артикулу или поставщику' })
     .fill('missing-item');
   await nav.getByRole('button', { name: 'Поставщики', exact: true }).click();
-  await expect(page.locator('.supplier-row').first()).toBeVisible();
+  await expect(page.locator('.supplier-card').first()).toBeVisible();
+  await expect(page.locator('.desktop-table')).toHaveCount(0);
+  await expect(page.locator('.kpis')).toHaveCount(0);
   await nav.getByRole('button', { name: 'Ход анализа', exact: true }).click();
   const journal = page.locator('#agent-run');
   await expect(journal).toHaveAttribute('open', '');
@@ -31,4 +33,10 @@ test('profile actions, navigation filters, journal and resized mobile menu', asy
   await expect(page.getByRole('button', { name: 'Закрыть навигацию', exact: true })).toHaveCount(0);
   await nav.getByRole('button', { name: 'Обзор запасов', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Обзор запасов', exact: true })).toBeVisible();
+  await expect(page.locator('.kpis')).toBeVisible();
+  await expect(page.locator('.desktop-table')).toHaveCount(0);
+  await nav.getByRole('button', { name: 'Рекомендации' }).click();
+  await expect(page.locator('.desktop-table')).toBeVisible();
+  await expect(page.locator('.kpis')).toHaveCount(0);
+  await expect(page.locator('#agent-run')).toHaveCount(0);
 });

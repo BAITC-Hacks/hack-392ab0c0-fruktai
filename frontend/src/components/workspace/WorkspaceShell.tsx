@@ -41,7 +41,7 @@ export function WorkspaceShell({
       Icon: ShoppingCart,
       count: products.filter((p) => p.recommended > 0).length,
     },
-    { id: 'table' as View, label: 'Поставщики', Icon: Users, suppliers: true },
+    { id: 'suppliers' as View, label: 'Поставщики', Icon: Users, suppliers: false },
     { id: 'data' as View, label: 'Источники данных', Icon: Database },
     { id: 'activity' as View, label: 'Ход анализа', Icon: Activity },
   ];

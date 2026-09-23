@@ -139,7 +139,7 @@ test('new workspace: navigation, sort, filters, focus and accessible drawers', a
     animations: 'disabled',
   });
   await nav.getByRole('button', { name: 'Поставщики', exact: true }).click();
-  await expect(page.locator('.supplier-row').first()).toBeVisible();
+  await expect(page.locator('.supplier-card').first()).toBeVisible();
   await nav.getByRole('button', { name: 'Ход анализа', exact: true }).click();
   await expect(page.getByText('Данные загружены', { exact: false })).toBeVisible();
   await nav.getByRole('button', { name: 'Источники данных', exact: true }).click();
