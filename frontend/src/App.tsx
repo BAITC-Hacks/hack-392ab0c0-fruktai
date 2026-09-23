@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { LayoutGrid, BarChart3, Database, ChevronRight, RefreshCw, ShoppingCart, Users, ShieldCheck, AlertTriangle, CalendarDays, Check, X, Search, PanelRightClose, PanelRightOpen } from 'lucide-react';
-import { loadDashboard } from './api/client';
+import { loadDashboard, exportRun } from './api/client';
 import type { Override } from './types/api';
 import type { DemoProduct, DemoSnapshot } from './types/demo';
 import { filterProducts, initialFilters, formatDate, type Filters, type ScenarioDraft } from './utils/presentation';
-import { exportCsv } from './utils/csv';
+import { ImportPanel } from './components/ImportPanel';
 import { KpiCards } from './components/KpiCards';
 import { FiltersBar } from './components/FiltersBar';
 import { RecommendationsTable } from './components/RecommendationsTable';
@@ -24,6 +24,7 @@ const views = [
 ];
 
 export default function App() {
+  const [dataset, setDataset] = useState(() => localStorage.getItem('fruktai-dataset') || 'demo');
   const [data, setData] = useState<DemoSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -40,13 +41,15 @@ export default function App() {
   const requestNumber = useRef(0);
   const appliedOverrides = useRef<Override[]>([]);
 
-  async function load(overrides: Override[] = []) {
+  async function load(overrides: Override[] = [], targetDataset = dataset) {
     const request = ++requestNumber.current;
     setLoading(true); setError('');
     try {
-      const result = await loadDashboard(overrides);
+      const result = await loadDashboard(overrides, targetDataset);
       if (request !== requestNumber.current) return;
       setData(result);
+      setDataset(targetDataset); localStorage.setItem('fruktai-dataset', targetDataset);
+      if (targetDataset !== dataset) { setDrafts({}); setFilters(initialFilters); setActiveProduct(null); }
       appliedOverrides.current = overrides;
       setActiveProduct(previous => previous ? result.products.find(p => p.sku === previous.sku) ?? null : null);
       setReviewProducts(null);
@@ -119,7 +122,9 @@ export default function App() {
     </header>
     <main id="main-content">
       <div className="page-heading"><div><div className="title-row"><h1>План закупок</h1></div><p>Рекомендации по пополнению склада</p></div><div className="heading-actions"><button className="secondary-button" onClick={() => void load()} disabled={loading}><RefreshCw size={16}/>{loading ? 'Загрузка…' : 'Обновить данные'}</button>{data && <button className="primary-button" onClick={openReview}><ShoppingCart size={17}/>Проверить заказ{selectedProducts.length ? <span className="button-count">{selectedProducts.length}</span> : null}</button>}</div></div>
-      <div className="context-row"><span>API · учебный набор demo</span><span><CalendarDays size={14}/>{data ? 'Срез: ' + formatDate(data.updatedAt) + ' · ' + new Date(data.updatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Almaty' }) + ' (UTC+5)' : 'Дата среза не получена'}</span>{data && <button className="context-link" onClick={() => setView('data')}>Источник и полнота данных <ChevronRight size={12}/></button>}</div>
+      <div className="context-row"><span>API · {data?.dataset === 'demo' ? 'учебный набор demo' : (data?.dataset || dataset)}</span><span><CalendarDays size={14}/>{data ? 'Срез: ' + formatDate(data.updatedAt) + ' · ' + new Date(data.updatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Almaty' }) + ' (UTC+5)' : 'Дата среза не получена'}</span>{data && <button className="context-link" onClick={() => setView('data')}>Источник и полнота данных <ChevronRight size={12}/></button>}</div>
+      <ImportPanel busy={loading} onCalculate={id => load([], id)}/>
+      {dataset !== 'demo' && <button className="text-button" disabled={loading} onClick={() => void load([], 'demo')}>Вернуться к учебному набору demo</button>}
       {error && <div className="error-banner" role="alert"><AlertTriangle size={20}/><div><strong>Не удалось обновить рекомендации</strong><p>{error}</p>{data && <p>На экране сохранён предыдущий набор.</p>}</div><button className="secondary-button" onClick={() => void load()}>Повторить загрузку</button></div>}
       {notice && <div className="notice-banner" role="status"><Check size={17}/><span>{notice}</span><button className="icon-button" aria-label="Закрыть уведомление" onClick={() => setNotice('')}><X size={16}/></button></div>}
       {loading && !data ? <LoadingState/> : data && <>
@@ -137,13 +142,14 @@ export default function App() {
       </>}
       <footer className="app-footer"><span>Электрокомплект <span>·</span> Рабочее место закупок</span><span>HackAlem AI <span>·</span> FruktAi</span></footer>
     </main>
-    {activeProduct && <Drawer title="Объяснение рекомендации" onClose={() => setActiveProduct(null)}><RecommendationDetails key={activeProduct.sku} product={activeProduct} draft={drafts[activeProduct.sku]} onDraft={draft => setDraft(activeProduct.sku, draft)} selected={selected.has(activeProduct.sku)} onToggle={() => toggle(activeProduct.sku)} busy={loading} onRecalculate={draft => recalculateProduct(activeProduct.sku, draft)}/></Drawer>}
-    {reviewProducts && <Drawer title="Проверка заказа" wide onClose={() => setReviewProducts(null)}><ReviewOrder products={reviewProducts} onExport={() => {
+    {activeProduct && <Drawer title="Объяснение рекомендации" onClose={() => setActiveProduct(null)}><RecommendationDetails key={activeProduct.sku} product={activeProduct} runId={data!.response.run_id} draft={drafts[activeProduct.sku]} onDraft={draft => setDraft(activeProduct.sku, draft)} selected={selected.has(activeProduct.sku)} onToggle={() => toggle(activeProduct.sku)} busy={loading} onRecalculate={draft => recalculateProduct(activeProduct.sku, draft)}/></Drawer>}
+    {reviewProducts && <Drawer title="Проверка заказа" wide onClose={() => setReviewProducts(null)}><ReviewOrder products={reviewProducts} onExport={async format => {
       try {
-        exportCsv(reviewProducts);
-        setNotice('CSV подготовлен. Позиций: ' + reviewProducts.length + '. Заказ поставщикам не отправлялся.');
+        if (!data) throw new Error('Нет расчёта');
+        await exportRun(data.response.run_id, reviewProducts.map(p => p.sku), format);
+        setNotice('Экспорт подготовлен. Позиций: ' + reviewProducts.length + '. Заказ поставщикам не отправлялся.');
         setReviewProducts(null);
-      } catch { setError('Не удалось подготовить CSV. Повторите выгрузку.'); }
+      } catch { throw new Error('Не удалось экспортировать сохранённый расчёт. Повторите выгрузку.'); }
     }}/></Drawer>}
   </>;
 }

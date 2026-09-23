@@ -7,12 +7,12 @@ import { formatNumber, validateScenario, type ScenarioDraft } from '../utils/pre
 import { StatusBadge } from './StatusBadge';
 
 interface Props {
-  product: DemoProduct; draft: ScenarioDraft | undefined;
+  product: DemoProduct; runId: string; draft: ScenarioDraft | undefined;
   onDraft: (draft: ScenarioDraft | undefined) => void;
   selected: boolean; onToggle: () => void; busy: boolean;
   onRecalculate: (draft: ScenarioDraft) => Promise<void>;
 }
-export function RecommendationDetails({ product: p, draft, onDraft, selected, onToggle, busy, onRecalculate }: Props) {
+export function RecommendationDetails({ product: p, runId, draft, onDraft, selected, onToggle, busy, onRecalculate }: Props) {
   const [values, setValues] = useState<ScenarioDraft>(draft ?? { onHand: String(p.onHand), inTransit: String(p.inTransit) });
   const [error, setError] = useState('');
   const [historyError, setHistoryError] = useState('');
@@ -21,10 +21,10 @@ export function RecommendationDetails({ product: p, draft, onDraft, selected, on
   useEffect(() => {
     let active = true;
     setItem(null); setHistoryError('');
-    loadItem(p.sku).then(value => { if (active) setItem(value); })
+    loadItem(p.sku, runId).then(value => { if (active) setItem(value); })
       .catch(problem => { if (active) setHistoryError(String(problem.message)); });
     return () => { active = false; };
-  }, [p]);
+  }, [p, runId]);
   const c = p.calculation;
   async function recalculate() {
     const problem = validateScenario(values);

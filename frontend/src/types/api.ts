@@ -1,4 +1,10 @@
 export interface Override { sku: string; on_hand?: number; in_transit?: number }
+export interface ImportMetadata {
+  dataset: string; source: 'file_upload' | '1c_file_exchange'; warehouse_id: string;
+  counts: Record<string, number>; warnings: string[];
+  preview: Record<string, Record<string, string>[]>;
+  products: { sku: string; name: string; category: string; unit: string }[];
+}
 export interface Calculation {
   recommended_qty: number; on_hand: number; in_transit: number; lead_time_days: number;
   avg_daily_demand: number; forecast_demand: number; safety_stock: number;
