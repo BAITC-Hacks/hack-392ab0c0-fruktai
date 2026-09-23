@@ -71,3 +71,75 @@ test('upload Excel -> preview -> calculate -> persisted history -> Excel export'
   await expect(page.getByRole('button', { name: 'Вернуться к учебному набору demo' })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('new workspace: navigation, sort, filters, focus and accessible drawers', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Обновить данные', exact: true })).toBeEnabled();
+  await expect(page.getByRole('columnheader', { name: 'Покрытие' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Прогноз' })).toBeVisible();
+  await page.screenshot({ path: '../artifacts/design-desktop.png', fullPage: true, animations: 'disabled' });
+  await page.getByRole('combobox', { name: 'Сортировка', exact: true }).selectOption('quantity');
+  const amounts = await page.locator('.desktop-table td.order-number').allTextContents();
+  const numbers = amounts.map(text => Number(text.replace(/[^0-9]/g, '')));
+  expect(numbers).toEqual([...numbers].sort((a, b) => b - a));
+  const search = page.getByRole('textbox', { name: 'Поиск по товару, артикулу или поставщику' });
+  await search.fill('STABLE-001');
+  const product = page.locator('.desktop-table .product-cell').first();
+  await product.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByTestId('sales-history')).toBeVisible();
+  await page.screenshot({ path: '../artifacts/design-details.png', fullPage: true, animations: 'disabled' });
+  await page.keyboard.press('Escape');
+  await expect(product).toBeFocused();
+  await expect(search).toHaveValue('STABLE-001');
+  await search.fill('no-such-sku');
+  await expect(page.getByRole('heading', { name: 'Подходящих позиций нет' })).toBeVisible();
+  await page.getByRole('button', { name: 'Сбросить фильтры', exact: true }).click();
+  const nav = page.getByRole('navigation', { name: 'Основная навигация' });
+  await nav.getByRole('button', { name: 'Обзор запасов', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Как изменится доступный запас' })).toBeVisible();
+  await page.screenshot({ path: '../artifacts/design-overview.png', fullPage: true, animations: 'disabled' });
+  await nav.getByRole('button', { name: 'Поставщики', exact: true }).click();
+  await expect(page.locator('.supplier-row').first()).toBeVisible();
+  await nav.getByRole('button', { name: 'Ход анализа', exact: true }).click();
+  await expect(page.getByText('Данные загружены', { exact: false })).toBeVisible();
+  await nav.getByRole('button', { name: 'Источники данных', exact: true }).click();
+  await expect(page.getByTestId('import-panel')).toBeVisible();
+  await page.screenshot({ path: '../artifacts/design-sources.png', fullPage: true, animations: 'disabled' });
+});
+
+test('mobile workspace fits viewport and preserves working item actions', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Обновить данные', exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await expect(page.locator('.mobile-product').first()).toBeVisible();
+  await page.screenshot({ path: '../artifacts/design-mobile.png', fullPage: true, animations: 'disabled' });
+  await page.locator('.mobile-product').first().getByRole('button', { name: /Открыть расчёт/ }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  const input = page.getByRole('textbox', { name: 'На складе', exact: true });
+  await input.fill('123');
+  await page.keyboard.press('Escape');
+  await page.locator('.mobile-product').first().getByRole('button', { name: /Открыть расчёт/ }).click();
+  await expect(page.getByRole('textbox', { name: 'На складе', exact: true })).toHaveValue('123');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Открыть навигацию', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('button', { name: 'Обзор запасов', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Обзор запасов', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+});
+
+test('API error is actionable and does not claim a successful calculation', async ({ page }) => {
+  let fail = true;
+  await page.route('**/api/v1/recalculate', route => fail
+    ? route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Тест: сервер временно недоступен' }) })
+    : route.continue());
+  await page.goto('/');
+  await expect(page.getByRole('alert')).toContainText('Не удалось обновить рекомендации');
+  await expect(page.getByText('Ошибка обновления', { exact: true })).toBeVisible();
+  fail = false;
+  await page.getByRole('button', { name: 'Повторить загрузку', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Обновить данные', exact: true })).toBeEnabled();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});

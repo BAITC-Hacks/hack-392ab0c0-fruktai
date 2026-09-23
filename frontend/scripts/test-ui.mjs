@@ -26,6 +26,11 @@ assert.equal(ui.validateScenario({ onHand: '0', inTransit: '12' }), null);
 for (const input of ['', '-1', '12,5', '1.5', 'Infinity', '1e2', '0x10', '2a', '1000000001']) {
   assert.ok(ui.validateScenario({ onHand: input, inTransit: '0' }), 'Reject: ' + input);
 }
+const byQuantity = ui.filterProducts(products, { ...ui.initialFilters, sort: 'quantity' });
+assert.deepEqual(byQuantity.map(p => p.recommended), products.map(p => p.recommended).sort((a, b) => b - a));
+const byCover = ui.filterProducts(products, { ...ui.initialFilters, sort: 'cover' });
+assert.deepEqual(byCover.map(p => p.calculation.days_of_cover), products.map(p => p.calculation.days_of_cover).sort((a, b) => a - b));
+assert.equal(ui.shortReason({ ...products[0], recommended: 0 }), 'Пополнение по расчёту не требуется');
 const before = JSON.stringify(products);
 ui.filterProducts(products, { ...ui.initialFilters, sort: 'supplier' });
 csv.createCsv(products);

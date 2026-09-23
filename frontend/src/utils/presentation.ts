@@ -19,6 +19,7 @@ export function quantitySummary(products: DemoProduct[]): string {
 }
 
 export function shortReason(product: DemoProduct): string {
+  if (product.recommended === 0) return 'Пополнение по расчёту не требуется';
   if (product.onHand === 0) return 'Нет товара на складе';
   if (product.anomalyNote) return 'Разовая продажа исключена';
   if (product.stockoutNote) return 'Восстановлен упущенный спрос';
@@ -42,7 +43,7 @@ export function validateScenario(draft: ScenarioDraft): string | null {
   return null;
 }
 
-export type SortKey = 'risk' | 'sku' | 'supplier';
+export type SortKey = 'risk' | 'sku' | 'supplier' | 'quantity' | 'cover';
 export interface Filters {
   search: string; supplier: string; category: string; status: string;
   onlyOrders: boolean; signal: 'all' | 'anomaly' | 'stockout'; sort: SortKey;
@@ -62,6 +63,8 @@ export function filterProducts(products: DemoProduct[], filters: Filters): DemoP
     (filters.signal !== 'anomaly' || !!product.anomalyNote) &&
     (filters.signal !== 'stockout' || !!product.stockoutNote)
   ).sort((a, b) => {
+    if (filters.sort === 'quantity') return b.recommended - a.recommended;
+    if (filters.sort === 'cover') return a.calculation.days_of_cover - b.calculation.days_of_cover;
     if (filters.sort === 'sku') return a.sku.localeCompare(b.sku, 'ru');
     if (filters.sort === 'supplier') return a.supplier.localeCompare(b.supplier, 'ru');
     return statusRank[a.status] - statusRank[b.status] || Number(b.onHand === 0) - Number(a.onHand === 0);
