@@ -4,6 +4,8 @@ Contract version: `1.0.0`
 Base path: `/api/v1`  
 Content type: `application/json`
 
+Machine-readable schema index: [`contracts/README.md`](../contracts/README.md).
+
 This document is the source of truth for backend, frontend, agent integration, and smoke tests. Contract fields must not be renamed or removed without updating this document first and notifying both owners.
 
 ## Common rules
@@ -29,6 +31,8 @@ Response `200`:
   "status": "ok"
 }
 ```
+
+Schema: [`contracts/health.response.schema.json`](../contracts/health.response.schema.json).
 
 ## `POST /api/v1/recalculate`
 
@@ -58,6 +62,10 @@ Request fields:
 | `overrides[].sku` | string | yes | Must exist in `products.csv`. |
 | `overrides[].on_hand` | integer | no | `>= 0`; omitted value uses CSV data. |
 | `overrides[].in_transit` | integer | no | `>= 0`; omitted value uses CSV data. |
+
+At least one of `on_hand` or `in_transit` is required in each override. Dataset names may contain only Latin letters, digits, `_`, and `-`; path fragments are rejected.
+
+Request schema: [`contracts/recalculate.request.schema.json`](../contracts/recalculate.request.schema.json).
 
 Response `200`:
 
@@ -157,6 +165,12 @@ Response `200`:
 
 The calculation object deliberately reuses names and meanings from the recommendation response. Frontend code must not infer or invent additional business fields.
 
+Response schema: [`contracts/item.response.schema.json`](../contracts/item.response.schema.json).
+
+## Error responses
+
+Application errors use `{"detail": "message"}`. FastAPI request-validation errors keep the standard `detail` array. Both forms are defined by [`contracts/error.response.schema.json`](../contracts/error.response.schema.json).
+
 ## Change process
 
 1. Update this file first.
@@ -164,4 +178,3 @@ The calculation object deliberately reuses names and meanings from the recommend
 3. Send one change notice to the backend and frontend owners.
 4. Update implementation and mock data together.
 5. Run schema validation and the smoke test before merge.
-

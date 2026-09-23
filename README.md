@@ -42,6 +42,7 @@ data/demo/   six contract-compliant demo CSV files (data/backend owner)
 The calculation workflow uses only the Python standard library. From the repository root:
 
 ```bash
+python scripts/validate_api_contracts.py
 python scripts/test_agent_workflow.py
 ```
 

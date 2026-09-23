@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fruktai.local/contracts/error.response.schema.json",
+  "title": "FruktAI error response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["detail"],
+  "properties": {
+    "detail": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validationError" }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "validationError": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["loc", "msg", "type"],
+      "properties": {
+        "loc": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "integer" }
+            ]
+          }
+        },
+        "msg": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fruktai.local/contracts/item.response.schema.json",
+  "title": "FruktAI item detail response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sku", "name", "history", "calculation"],
+  "properties": {
+    "sku": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "history": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/historyPoint" }
+    },
+    "calculation": { "$ref": "#/$defs/calculation" }
+  },
+  "$defs": {
+    "nonNegativeNumber": { "type": "number", "minimum": 0 },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+    "historyPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "date",
+        "units",
+        "is_outlier",
+        "is_stockout",
+        "estimated_lost_units"
+      ],
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "units": { "$ref": "#/$defs/nonNegativeNumber" },
+        "is_outlier": { "type": "boolean" },
+        "is_stockout": { "type": "boolean" },
+        "estimated_lost_units": { "$ref": "#/$defs/nonNegativeNumber" }
+      }
+    },
+    "calculation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommended_qty",
+        "on_hand",
+        "in_transit",
+        "lead_time_days",
+        "avg_daily_demand",
+        "forecast_demand",
+        "safety_stock",
+        "seasonality_factor",
+        "growth_factor",
+        "stockout_compensation",
+        "outlier_units_removed",
+        "days_of_cover",
+        "reasons"
+      ],
+      "properties": {
+        "recommended_qty": { "$ref": "#/$defs/nonNegativeInteger" },
+        "on_hand": { "$ref": "#/$defs/nonNegativeInteger" },
+        "in_transit": { "$ref": "#/$defs/nonNegativeInteger" },
+        "lead_time_days": { "$ref": "#/$defs/nonNegativeInteger" },
+        "avg_daily_demand": { "$ref": "#/$defs/nonNegativeNumber" },
+        "forecast_demand": { "$ref": "#/$defs/nonNegativeNumber" },
+        "safety_stock": { "$ref": "#/$defs/nonNegativeNumber" },
+        "seasonality_factor": { "$ref": "#/$defs/nonNegativeNumber" },
+        "growth_factor": { "$ref": "#/$defs/nonNegativeNumber" },
+        "stockout_compensation": { "$ref": "#/$defs/nonNegativeNumber" },
+        "outlier_units_removed": { "$ref": "#/$defs/nonNegativeNumber" },
+        "days_of_cover": { "$ref": "#/$defs/nonNegativeNumber" },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
+
