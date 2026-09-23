@@ -1,7 +1,7 @@
-sku,supplier,on_hand,in_transit,lead_time_days,name,category
-STABLE-001,Alpha,2,0,5,Stable item,standard
-SEASON-001,Beta,1,0,5,Seasonal item,seasonal
-GROW-001,Alpha,2,0,5,Growth item,growth
-STOCKOUT-001,Gamma,1,0,5,Stockout item,risk
-BULK-001,Gamma,2,0,5,Bulk order item,standard
-TRANSIT-001,Delta,2,100,5,Transit item,standard
+sku,supplier,on_hand,in_transit,lead_time_days,name,category,review_period_days,backorders,reserved,pack_size,moq,max_stock,service_level,eta
+STABLE-001,Alpha,2,0,5,Stable item,standard,3,0,0,1,0,,0.95,
+SEASON-001,Beta,1,0,5,Seasonal item,seasonal,3,0,0,12,48,,0.95,
+GROW-001,Alpha,2,0,5,Growth item,growth,3,0,0,1,0,,0.95,
+STOCKOUT-001,Gamma,1,0,5,Stockout item,risk,3,5,0,6,12,,0.99,
+BULK-001,Gamma,2,0,5,Bulk order item,standard,3,0,0,10,50,,0.95,
+TRANSIT-001,Delta,2,100,5,Transit item,standard,3,0,0,1,0,,0.95,2026-03-20
