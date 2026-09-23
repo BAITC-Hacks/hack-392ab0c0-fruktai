@@ -31,6 +31,14 @@ def recalculate(
     )
 
 
+def get_item(base_url: str, sku: str, timeout: float = 10.0) -> dict[str, Any]:
+    return _request_json(
+        "GET",
+        f"{base_url.rstrip('/')}/api/v1/items/{sku}",
+        timeout=timeout,
+    )
+
+
 def _request_json(
     method: str,
     url: str,
@@ -55,4 +63,3 @@ def _request_json(
     if not isinstance(value, dict):
         raise BackendAPIError(f"{method} {url} returned a non-object JSON response")
     return value
-
