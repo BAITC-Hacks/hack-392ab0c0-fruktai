@@ -1,0 +1,7 @@
+sku,name,supplier_id,active
+STABLE-001,Stable item,ALPHA,true
+SEASON-001,Seasonal item,BETA,true
+GROW-001,Growth item,ALPHA,true
+STOCKOUT-001,Stockout item,GAMMA,true
+BULK-001,Bulk order item,GAMMA,true
+TRANSIT-001,Transit item,DELTA,true
