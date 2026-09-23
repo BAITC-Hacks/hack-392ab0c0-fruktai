@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fruktai.local/contracts/import.response.schema.json",
+  "title": "Validated input dataset metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["dataset", "source", "warehouse_id", "counts", "warnings", "preview", "products"],
+  "properties": {
+    "dataset": {"type": "string", "pattern": "^upload_[a-f0-9]{32}$"},
+    "source": {"enum": ["file_upload", "1c_file_exchange"]},
+    "warehouse_id": {"type": "string"},
+    "counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "preview": {"type": "object"},
+    "products": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["sku", "name", "category", "unit"],
+        "properties": {
+          "sku": {"type": "string"}, "name": {"type": "string"},
+          "category": {"type": "string"}, "unit": {"type": "string"}
+        }
+      }
+    }
+  }
+}

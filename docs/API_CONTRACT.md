@@ -1,6 +1,6 @@
 # FruktAI API contract
 
-Contract version: `1.0.0`  
+Contract version: `1.1.0`
 Base path: `/api/v1`  
 Content type: `application/json`
 
@@ -57,7 +57,7 @@ Request fields:
 
 | Field | Type | Required | Rules |
 |---|---|---:|---|
-| `dataset` | string | yes | Non-empty dataset directory name; MVP supports `demo`. |
+| `dataset` | string | yes | Non-empty dataset directory name; supports `demo` and IDs returned by the import route. |
 | `overrides` | array | no | Defaults to `[]`; at most one entry per SKU. |
 | `overrides[].sku` | string | yes | Must exist in `products.csv`. |
 | `overrides[].on_hand` | integer | no | `>= 0`; omitted value uses CSV data. |
@@ -171,7 +171,40 @@ Response schema: [`contracts/item.response.schema.json`](../contracts/item.respo
 
 Application errors use `{"detail": "message"}`. FastAPI request-validation errors keep the standard `detail` array. Both forms are defined by [`contracts/error.response.schema.json`](../contracts/error.response.schema.json).
 
-## Change process
+## File exchange and input/output (1.1.0, additive)
+
+Existing recommendation fields and the three existing routes remain compatible.
+New routes are shared by the frontend and the 1C file-exchange adapter:
+
+- `POST /api/v1/datasets/import`: multipart `files[]` (repeated field `files`),
+  `anonymized=true`, optional `warehouse_id`. Supports CSV/TSV, XLSX, XLS, JSON,
+  and text-based table PDFs. Maximum 12 files, 10 MiB each, 30 MiB total,
+  50,000 data rows total, 50 PDF pages, 100,000 expanded stockout days total. Scans require OCR and are rejected.
+  Returns 201 with `dataset`, `source`, `warehouse_id`, `counts`,
+  `warnings`, `preview`, `products`. No calculation or order is triggered.
+  All validation must succeed before publication. Invalid input: 422;
+  unsupported format: 415; size limit: 413.
+- `GET /api/v1/datasets/{dataset}`: same metadata for a published upload; 404
+  otherwise. Dataset-specific originals are not returned or sent to OpenAI.
+- `GET /api/v1/datasets/template.xlsx`: six-sheet template with **synthetic**
+  example data, extra transaction fields, warehouse and product metadata.
+- `GET /api/v1/runs/{run_id}/export?format=csv|xlsx&sku=...`: export a persisted
+  calculation (all SKUs or repeated `sku` parameters), grouped by supplier.
+  Columns: SKU, product, supplier ID/name, recommended quantity, urgency, reasons.
+  Unknown run or selected SKU: 404. Unsupported format: 422.
+  This exports recommendations, never creates/posts a document in 1C.
+- `GET /api/v1/items/{sku}?run_id=...`: optional exact run lookup; old behavior
+  without run_id is retained for compatibility.
+
+Import metadata schema: `contracts/import.response.schema.json`.
+The import response contains normalized previews (up to 5 rows per table) without
+customer identifiers. `products` contains sku, name, category and unit when supplied.
+The returned dataset is accepted by the existing recalculate request.
+Missing price/customer data is a visible quality warning, not invented.
+Multiple warehouses require an explicit warehouse selection; silent merging is forbidden.
+1C mapping and PDF limitations: [INPUT_OUTPUT.md](INPUT_OUTPUT.md).
+
+## Change procedure
 
 1. Update this file first.
 2. Update the JSON Schema when the response changes.

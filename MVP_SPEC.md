@@ -2,11 +2,11 @@
 
 ## 1. Goal
 
-FruktAI automatically prepares explainable replenishment recommendations from prepared CSV files. The MVP reduces stockout risk and excess inventory without allowing an LLM to choose order quantities.
+FruktAI automatically prepares explainable replenishment recommendations from validated user uploads or the prepared demo dataset. The MVP reduces stockout risk and excess inventory without allowing an LLM to choose order quantities.
 
 The core user flow is:
 
-1. Load the `demo` dataset.
+1. Upload, validate and preview source files, or load the `demo` dataset.
 2. Validate input data.
 3. Exclude one-off sales outliers.
 4. Estimate demand lost during stockouts.
@@ -20,7 +20,9 @@ The core user flow is:
 
 Included:
 
-- prepared CSV input, with no required database;
+- validated file input (CSV/TSV/XLSX/XLS/JSON/text-table PDF) normalized to six CSV tables;
+- 1C file exchange and material-statement balance reconciliation;
+- server-side CSV/XLSX export of persisted recommendations;
 - deterministic calculation and deterministic workflow;
 - `GET /health`, `POST /api/v1/recalculate`, and `GET /api/v1/items/{sku}`;
 - a dashboard driven only by the documented API response;
@@ -34,7 +36,7 @@ Included:
 Not included:
 
 - automatic ordering or supplier communication;
-- authentication, payments, 1C integration, Redis, Celery, or WebSockets;
+- authentication, payments, automatic 1C document posting, Redis, Celery, or WebSockets;
 - probabilistic agent decisions;
 - an LLM in the quantity calculation path;
 - production cloud infrastructure;
@@ -71,12 +73,12 @@ The final quantity is rounded up to a whole unit.
 
 MVP calculation policy:
 
-1. Aggregate sales into daily units per SKU.
-2. Mark a daily sale as an outlier when it is above `Q3 + 1.5 * IQR`; if IQR is zero, do not remove observations solely because of this rule.
-3. Compute baseline average daily demand from non-outlier, in-stock observations in the most recent 28 calendar days available. If fewer than 7 valid days exist, use all valid history and add a warning reason.
+1. With anonymized customer IDs, exclude isolated large customer/day groups before daily aggregation; see DATA_CONTRACT.md.
+2. Mark a daily sale as an outlier when it is above `Q3 + 1.5 * IQR`; if IQR is zero and Q3 is positive, use `3 * Q3` to catch isolated spikes in constant demand.
+3. Compute baseline average daily demand from non-outlier, in-stock observations in the most recent 28 calendar days available. If the available calendar span is shorter than 7 days, use that span and add a warning reason.
 4. Estimate stockout compensation as `baseline_daily_demand * stockout_days` inside the demand window. Stockout days do not reduce the denominator of the baseline.
-5. Seasonality factor is the ratio of the latest 7 valid days to the 28-day baseline, clamped to `[0.75, 1.50]`. With fewer than 28 calendar days of history, use `1.0`.
-6. Growth factor compares the latest 14 valid days with the preceding 14 valid days. Apply growth only when both windows have at least 7 valid days; clamp the factor to `[1.0, 1.30]` so a decline does not duplicate the seasonality adjustment.
+5. Seasonality factor is the ratio of the latest 7 calendar days (outlier/stockout observations contribute zero) to the 28-day baseline, clamped to `[0.75, 1.50]`. With fewer than 28 calendar days of history, use `1.0`.
+6. Growth factor compares the latest 14 calendar days with the preceding 14 calendar days (invalid observations contribute zero). Apply growth only when both windows have at least 7 valid days; clamp the factor to `[1.0, 1.30]` so a decline does not duplicate the seasonality adjustment.
 7. Adjusted average daily demand is `(valid_units + stockout_compensation) / calendar_days_in_window`.
 8. Forecast demand is `adjusted_average_daily_demand * lead_time_days * seasonality_factor * growth_factor`.
 9. Safety stock is `adjusted_average_daily_demand * safety_stock_days`. `safety_stock_days` defaults to 7 in the backend configuration.
@@ -126,3 +128,10 @@ The backend may call the orchestrator as a Python function. The smoke test calls
 - Recommendations are groupable by `supplier_id` without client-side invented fields.
 - The workflow journal contains all completed steps in execution order.
 - The project starts using the README instructions and passes the smoke test.
+## Первый пользовательский прогон вход/выход
+
+Импорт CSV/TSV/XLSX/XLS/JSON и текстовых табличных PDF → проверка/preview →
+выбор склада → неизменяемый снимок → workflow → SQLite → дашборд → CSV/XLSX.
+Материальная ведомость 1С используется как источник конечных остатков или
+сверяется с inventory. Прямой доступ к 1С и OCR не включены без согласованного
+источника/формата. Спецификация: [INPUT_OUTPUT.md](docs/INPUT_OUTPUT.md).

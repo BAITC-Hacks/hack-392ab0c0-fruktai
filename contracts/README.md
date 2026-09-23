@@ -11,6 +11,7 @@ These JSON Schema documents are the machine-readable form of the public
 | `POST /api/v1/recalculate` | response `200` | `recommendation.schema.json` |
 | `GET /api/v1/items/{sku}` | response `200` | `item.response.schema.json` |
 | Any endpoint | error response | `error.response.schema.json` |
+| Import dataset / dataset metadata | response | `import.response.schema.json` |
 
 | AI boundary | Payload | Schema |
 |---|---|---|

@@ -2,7 +2,13 @@
 
 Each dataset is a directory such as `data/demo/` containing the six files below. CSV files use UTF-8, a comma delimiter, one header row, `.` as decimal separator, and ISO dates (`YYYY-MM-DD`). Column names are exact and case-sensitive.
 
-Extra columns are allowed but ignored. Missing required columns, duplicate master keys, invalid dates, non-finite numbers, and negative quantities fail validation.
+Imported optional columns customer_id, price, warehouse_id, category and unit are
+retained in normalized source snapshots in SQLite. customer_id is used for
+per-client/day outlier exclusion, warehouse_id scopes the dataset, category/unit
+are returned as import metadata. Price is audit data, not a multiplier of unit demand.
+The upload boundary rejects unknown columns; direct legacy CSV ignores unknown
+columns. Missing required columns, duplicate master keys, invalid dates,
+non-finite numbers, and negative quantities fail validation.
 
 ## `products.csv`
 
@@ -39,7 +45,11 @@ supplier_id,supplier_name,lead_time_days
 
 ## `sales.csv`
 
-Daily or transactional sales. Multiple rows for the same SKU and date are summed before anomaly detection.
+Daily or transactional sales. With customer_id, the algorithm first excludes
+one-off large client/day groups using a robust per-SKU threshold (at least eight
+groups, threshold max(Q3 + 3 IQR, 5 median)). Repeated large groups for the same
+client are retained at that stage. Daily detection then runs on cleaned totals.
+Without customer_id, only daily detection is available, with an import warning.
 
 | Column | Type | Required | Rules |
 |---|---|---:|---|
@@ -111,4 +121,3 @@ stockouts.sku         -> products.sku
 ```
 
 An active product without inventory is an error. An active product without sales history is valid: demand and recommendation are zero, with an explanatory reason.
-

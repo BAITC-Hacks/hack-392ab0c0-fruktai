@@ -10,12 +10,19 @@
 React → Vite/nginx proxy → backend.main.create_app → WorkflowService →
 agent.orchestrator → optional OpenAIExplainer → database.repository → SQLite.
 
-HTTP-контракт из API_CONTRACT.md сохранён. Дополнительные endpoints старого
-backend (summary/approve/export) в приложение не включены. Экспорт выполняется
-frontend по полученным рекомендациям и после явного подтверждения менеджера.
+Существующие поля HTTP-контракта сохранены; версия 1.1.0 добавляет импорт,
+метаданные, шаблон и экспорт сохранённого run_id. Старые альтернативные маршруты
+backend (summary/approve/export) не подключены. Новый экспорт выполняется
+backend/exports.py по SQLite после подтверждения в интерфейсе.
+
+Вход: React → backend/imports.py → нормализация/валидация → artifacts/imports
+и source_imports в SQLite → существующий WorkflowService. Реальный формат 1С
+согласуется отдельно; сейчас доступен файловый обмен, не OData.
+Подробности: [INPUT_OUTPUT.md](INPUT_OUTPUT.md).
 
 ## Ответственность интеграционных файлов
 
+- backend/imports.py, backend/exports.py — граница файлового обмена; PDF без OCR.
 - backend/main.py — HTTP, запуск SQLite, перевод ошибок в 404/422/500.
 - backend/schemas.py — Pydantic wire models; прежние внутренние модели сохранены.
 - agent/service.py — расчёт, необязательное AI-обогащение, сохранение.

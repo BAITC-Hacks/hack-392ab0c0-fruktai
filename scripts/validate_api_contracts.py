@@ -174,6 +174,7 @@ def load_schemas() -> dict[str, dict[str, Any]]:
         check_references(schema, schema)
         schemas[path.name] = schema
     expected = {
+        "import.response.schema.json",
         "ai-explanation.input.schema.json",
         "ai-explanation.output.schema.json",
         "health.response.schema.json",
