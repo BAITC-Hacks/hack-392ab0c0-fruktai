@@ -1,4 +1,5 @@
 """The HTTP test runner must expose the cause of a failed server start."""
+
 import subprocess
 import sys
 
@@ -11,9 +12,13 @@ def test_startup_failure_includes_child_error(tmp_path):
     log_path = tmp_path / "startup.log"
     with log_path.open("w", encoding="utf-8") as log:
         process = subprocess.Popen(
-            [sys.executable, "-c",
-             "import sys; print('Missing runtime dependency', file=sys.stderr); sys.exit(7)"],
-            stdout=log, stderr=log,
+            [
+                sys.executable,
+                "-c",
+                "import sys; print('Missing runtime dependency', file=sys.stderr); sys.exit(7)",
+            ],
+            stdout=log,
+            stderr=log,
         )
         process.wait(timeout=10)
         with pytest.raises(RuntimeError) as captured:

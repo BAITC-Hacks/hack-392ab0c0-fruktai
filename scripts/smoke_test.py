@@ -76,9 +76,7 @@ def validate_response(response: dict[str, Any]) -> None:
     if not isinstance(response["agent_steps"], list):
         raise AssertionError("agent_steps must be an array")
     for index, recommendation in enumerate(response["recommendations"]):
-        item = require_fields(
-            recommendation, RECOMMENDATION_FIELDS, f"recommendations[{index}]"
-        )
+        item = require_fields(recommendation, RECOMMENDATION_FIELDS, f"recommendations[{index}]")
         if item["urgency"] not in {"high", "medium", "low"}:
             raise AssertionError(f"invalid urgency for {item['sku']}")
         if not isinstance(item["recommended_qty"], int) or item["recommended_qty"] < 0:
@@ -116,13 +114,9 @@ def run(base_url: str, dataset: str) -> None:
         None,
     )
     if orderable is None:
-        raise AssertionError(
-            "demo dataset must contain at least one SKU with recommended_qty > 0"
-        )
+        raise AssertionError("demo dataset must contain at least one SKU with recommended_qty > 0")
 
-    replacement_on_hand = (
-        orderable["on_hand"] + orderable["recommended_qty"] + 1
-    )
+    replacement_on_hand = orderable["on_hand"] + orderable["recommended_qty"] + 1
     changed = recalculate(
         base_url,
         dataset=dataset,
@@ -185,4 +179,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -1,9 +1,4 @@
-"""Dependency-free validation for FruktAI API JSON Schemas.
-
-The validator implements the JSON Schema keywords used by this repository. It
-checks schema references, contract examples, expected rejection cases, and a
-real response produced by the deterministic workflow.
-"""
+"""Validate repository schemas, examples, rejections and a real workflow response."""
 
 from __future__ import annotations
 
@@ -60,9 +55,7 @@ def validate(instance: Any, schema: dict[str, Any], root: dict[str, Any], path: 
         return
 
     if "oneOf" in schema:
-        matches = sum(
-            _matches(instance, option, root, path) for option in schema["oneOf"]
-        )
+        matches = sum(_matches(instance, option, root, path) for option in schema["oneOf"])
         if matches != 1:
             raise SchemaValidationError(f"{path}: expected exactly one oneOf match, got {matches}")
 
@@ -78,7 +71,9 @@ def validate(instance: Any, schema: dict[str, Any], root: dict[str, Any], path: 
 
     expected_type = schema.get("type")
     if expected_type and not _has_type(instance, expected_type):
-        raise SchemaValidationError(f"{path}: expected {expected_type}, got {type(instance).__name__}")
+        raise SchemaValidationError(
+            f"{path}: expected {expected_type}, got {type(instance).__name__}"
+        )
 
     if isinstance(instance, dict):
         required = schema.get("required", [])
@@ -317,8 +312,11 @@ def main() -> int:
     # presentation-only contract.
     fixture_path = REPOSITORY_ROOT / "frontend/src/mocks/demo.json"
     if fixture_path.is_file():
-        validate(json.loads(fixture_path.read_text(encoding="utf-8")),
-                 recommendation_schema, recommendation_schema)
+        validate(
+            json.loads(fixture_path.read_text(encoding="utf-8")),
+            recommendation_schema,
+            recommendation_schema,
+        )
     with tempfile.TemporaryDirectory(prefix="fruktai-contract-") as temp:
         root = Path(temp)
         dataset = root / "demo"

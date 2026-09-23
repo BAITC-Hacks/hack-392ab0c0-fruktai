@@ -4,11 +4,21 @@ from backend.calculation import calculate_recommendations
 
 
 def frames():
-    sales = pd.DataFrame([
-        {"date": f"2026-01-{i:02d}", "sku": "A", "quantity": 10, "customer_id": "c1", "stockout": False}
-        for i in range(1, 21)
-    ])
-    inventory = pd.DataFrame([{"sku": "A", "supplier": "S", "on_hand": 0, "in_transit": 0, "lead_time_days": 5}])
+    sales = pd.DataFrame(
+        [
+            {
+                "date": f"2026-01-{i:02d}",
+                "sku": "A",
+                "quantity": 10,
+                "customer_id": "c1",
+                "stockout": False,
+            }
+            for i in range(1, 21)
+        ]
+    )
+    inventory = pd.DataFrame(
+        [{"sku": "A", "supplier": "S", "on_hand": 0, "in_transit": 0, "lead_time_days": 5}]
+    )
     return sales, inventory
 
 
@@ -47,10 +57,24 @@ def test_single_large_customer_order_does_not_destroy_forecast():
 
 def test_seasonality_coefficient_is_visible_and_bounded():
     sales, inventory = frames()
-    sales = pd.concat([sales, pd.DataFrame([
-        {"date": f"2026-02-{i:02d}", "sku": "A", "quantity": 20, "customer_id": "c1", "stockout": False}
-        for i in range(1, 21)
-    ])], ignore_index=True)
+    sales = pd.concat(
+        [
+            sales,
+            pd.DataFrame(
+                [
+                    {
+                        "date": f"2026-02-{i:02d}",
+                        "sku": "A",
+                        "quantity": 20,
+                        "customer_id": "c1",
+                        "stockout": False,
+                    }
+                    for i in range(1, 21)
+                ]
+            ),
+        ],
+        ignore_index=True,
+    )
     result = one(sales, inventory)
     assert 1.0 < result.coefficients["seasonality"] <= 2.0
 

@@ -2,6 +2,7 @@
 
 Uses a temporary database, never the developer's working database or API key.
 """
+
 from __future__ import annotations
 import json
 import os
@@ -47,11 +48,15 @@ def wait_for_server(process, base: str, log_path: Path, timeout: float = 20) -> 
 
 def main():
     with tempfile.TemporaryDirectory(prefix="fruktai-http-") as temp:
-        env = dict(os.environ, OPENAI_EXPLANATIONS_ENABLED="false",
-                   PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1",
-                   FRUKTAI_DATA_ROOT=str(ROOT / "data"),
-                   FRUKTAI_DATABASE_PATH=str(Path(temp) / "db.sqlite"),
-                   FRUKTAI_RUNS_DIR=str(Path(temp) / "runs"))
+        env = dict(
+            os.environ,
+            OPENAI_EXPLANATIONS_ENABLED="false",
+            PYTHONIOENCODING="utf-8",
+            PYTHONUNBUFFERED="1",
+            FRUKTAI_DATA_ROOT=str(ROOT / "data"),
+            FRUKTAI_DATABASE_PATH=str(Path(temp) / "db.sqlite"),
+            FRUKTAI_RUNS_DIR=str(Path(temp) / "runs"),
+        )
         previous = None
         for iteration in range(2):
             # The restart verifies the same DB, not reuse of a particular port.
@@ -63,9 +68,20 @@ def main():
             log_path = Path(temp) / f"server-{iteration}.log"
             with log_path.open("w", encoding="utf-8") as log:
                 process = subprocess.Popen(
-                    [sys.executable, "-m", "uvicorn", "backend.main:app",
-                     "--host", "127.0.0.1", "--port", str(port)],
-                    cwd=ROOT, env=env, stdout=log, stderr=log,
+                    [
+                        sys.executable,
+                        "-m",
+                        "uvicorn",
+                        "backend.main:app",
+                        "--host",
+                        "127.0.0.1",
+                        "--port",
+                        str(port),
+                    ],
+                    cwd=ROOT,
+                    env=env,
+                    stdout=log,
+                    stderr=log,
                 )
                 try:
                     wait_for_server(process, base, log_path)

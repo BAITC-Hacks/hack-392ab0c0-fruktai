@@ -99,9 +99,7 @@ def main() -> int:
             ["sku", "quantity", "expected_date"],
             [],
         )
-        short_sales = [
-            [f"2026-09-{day:02d}", "SKU-001", 10] for day in range(1, 7)
-        ]
+        short_sales = [[f"2026-09-{day:02d}", "SKU-001", 10] for day in range(1, 7)]
         write_csv(
             fallback_dataset / "sales.csv",
             ["date", "sku", "units"],
@@ -112,10 +110,7 @@ def main() -> int:
         assert fallback_item["in_transit"] == 0
         assert fallback_item["seasonality_factor"] == 1.0
         assert any("fallback uses 0" in reason for reason in fallback_item["reasons"])
-        assert any(
-            "Insufficient seasonal history" in reason
-            for reason in fallback_item["reasons"]
-        )
+        assert any("Insufficient seasonal history" in reason for reason in fallback_item["reasons"])
 
         try:
             run_workflow(

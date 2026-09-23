@@ -1,4 +1,5 @@
 """Explicit paid AI integration check on temporary storage (one batch request)."""
+
 from pathlib import Path
 import sys
 import tempfile
@@ -32,7 +33,9 @@ def main():
                         assert after[field] == value, field
                 persisted = client.get("/api/v1/items/" + after["sku"]).json()
                 assert persisted["calculation"]["reasons"] == after["reasons"]
-        print(f"Live AI -> HTTP -> SQLite: OK ({explainer.last_report.enriched_items} items, model={explainer.model})")
+        print(
+            f"Live AI -> HTTP -> SQLite: OK ({explainer.last_report.enriched_items} items, model={explainer.model})"
+        )
         print("All deterministic business fields unchanged; temporary database removed on exit.")
 
 

@@ -24,8 +24,11 @@ def client(tmp_path):
 
 
 def import_json(client, tables, **form):
-    return client.post("/api/v1/datasets/import", data={"anonymized": "true", **form},
-                       files={"files": ("input.json", json.dumps(tables), "application/json")})
+    return client.post(
+        "/api/v1/datasets/import",
+        data={"anonymized": "true", **form},
+        files={"files": ("input.json", json.dumps(tables), "application/json")},
+    )
 
 
 def source_tables():
@@ -39,8 +42,11 @@ def source_tables():
 def test_template_to_calculation_to_both_exports(client):
     template = client.get("/api/v1/datasets/template.xlsx")
     assert template.status_code == 200
-    response = client.post("/api/v1/datasets/import", data={"anonymized": "true"},
-                           files={"files": ("input.xlsx", template.content)})
+    response = client.post(
+        "/api/v1/datasets/import",
+        data={"anonymized": "true"},
+        files={"files": ("input.xlsx", template.content)},
+    )
     assert response.status_code == 201, response.text
     meta = response.json()
     schema = load_schemas()["import.response.schema.json"]
@@ -66,11 +72,16 @@ def test_template_to_calculation_to_both_exports(client):
     assert book.active.max_row == 7
     book.close()
     # Later calculations for the same SKU cannot change this run's export/history.
-    client.post("/api/v1/recalculate", json={"dataset": meta["dataset"], "overrides": [
-        {"sku": item["sku"], "on_hand": 10000}]})
+    client.post(
+        "/api/v1/recalculate",
+        json={"dataset": meta["dataset"], "overrides": [{"sku": item["sku"], "on_hand": 10000}]},
+    )
     detail = client.get(f"/api/v1/items/{item['sku']}?run_id={run}").json()
     assert detail["calculation"]["recommended_qty"] == item["recommended_qty"]
-    assert client.get(f"/api/v1/runs/{run}/export?format=csv&sku={item['sku']}").content == csv_export.content
+    assert (
+        client.get(f"/api/v1/runs/{run}/export?format=csv&sku={item['sku']}").content
+        == csv_export.content
+    )
 
 
 def test_1c_material_statement_and_warehouse(client):
@@ -78,7 +89,9 @@ def test_1c_material_statement_and_warehouse(client):
     for name in ("sales", "inventory", "stockouts", "in_transit"):
         tables[name] = [dict(row, warehouse_id="WH-A") for row in tables[name]]
     tables["material_statement"] = tables.pop("inventory")
-    tables["material_statement"].append({"sku": "STABLE-001", "on_hand": "900", "warehouse_id": "WH-B"})
+    tables["material_statement"].append(
+        {"sku": "STABLE-001", "on_hand": "900", "warehouse_id": "WH-B"}
+    )
     missing = import_json(client, tables)
     assert missing.status_code == 422
     response = import_json(client, tables, warehouse_id="WH-A")
@@ -94,35 +107,63 @@ def test_atomic_invalid_import_and_anonymization(client, tmp_path):
     assert import_json(client, tables).status_code == 422
     with sqlite3.connect(tmp_path / "db.sqlite") as db:
         assert db.execute("SELECT count(*) FROM source_imports").fetchone()[0] == 0
-    response = client.post("/api/v1/datasets/import", data={"anonymized": "false"},
-                           files={"files": ("input.json", json.dumps(source_tables()))})
+    response = client.post(
+        "/api/v1/datasets/import",
+        data={"anonymized": "false"},
+        files={"files": ("input.json", json.dumps(source_tables()))},
+    )
     assert response.status_code == 422
     assert import_json(client, source_tables()).status_code == 201
 
 
 def test_unsupported_missing_tables_and_formula(client):
-    assert client.post("/api/v1/datasets/import", data={"anonymized": "true"},
-                       files={"files": ("data.exe", b"bad")}).status_code == 415
+    assert (
+        client.post(
+            "/api/v1/datasets/import",
+            data={"anonymized": "true"},
+            files={"files": ("data.exe", b"bad")},
+        ).status_code
+        == 415
+    )
     assert import_json(client, {"sales": []}).status_code == 422
     book = load_workbook(BytesIO(client.get("/api/v1/datasets/template.xlsx").content))
     book["sales"]["C2"] = "=1+1"
     buffer = BytesIO()
     book.save(buffer)
     book.close()
-    assert client.post("/api/v1/datasets/import", data={"anonymized": "true"},
-                       files={"files": ("input.xlsx", buffer.getvalue())}).status_code == 422
+    assert (
+        client.post(
+            "/api/v1/datasets/import",
+            data={"anonymized": "true"},
+            files={"files": ("input.xlsx", buffer.getvalue())},
+        ).status_code
+        == 422
+    )
 
 
 def test_russian_cp1251_csv_and_tsv():
-    result = parse_file("Продажи.csv", "Дата;Артикул;Количество;Цена\n22.09.2026;0001;12,5;20,2\n".encode("cp1251"))
-    assert result["sales"][0] == {"date": "2026-09-22", "sku": "0001", "units": "12.5", "price": "20.2"}
+    result = parse_file(
+        "Продажи.csv", "Дата;Артикул;Количество;Цена\n22.09.2026;0001;12,5;20,2\n".encode("cp1251")
+    )
+    assert result["sales"][0] == {
+        "date": "2026-09-22",
+        "sku": "0001",
+        "units": "12.5",
+        "price": "20.2",
+    }
     assert parse_file("inventory.tsv", b"sku\ton_hand\n001\t25")["inventory"][0]["sku"] == "001"
 
 
 def simple_pdf(text=True):
     # A real minimal PDF with table borders. No external PDF generation dependency.
-    commands = ["BT /F1 10 Tf 50 710 Td (sku) Tj 150 0 Td (on_hand) Tj ET",
-                "BT /F1 10 Tf 50 680 Td (001) Tj 150 0 Td (25) Tj ET"] if text else []
+    commands = (
+        [
+            "BT /F1 10 Tf 50 710 Td (sku) Tj 150 0 Td (on_hand) Tj ET",
+            "BT /F1 10 Tf 50 680 Td (001) Tj 150 0 Td (25) Tj ET",
+        ]
+        if text
+        else []
+    )
     for y in (730, 700, 670):
         commands.append(f"40 {y} m 300 {y} l S")
     for x in (40, 190, 300):
@@ -144,12 +185,16 @@ def simple_pdf(text=True):
     pdf.extend(f"xref\n0 {len(offsets)}\n0000000000 65535 f \n".encode())
     for offset in offsets[1:]:
         pdf.extend(f"{offset:010d} 00000 n \n".encode())
-    pdf.extend(f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{position}\n%%EOF".encode())
+    pdf.extend(
+        f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{position}\n%%EOF".encode()
+    )
     return bytes(pdf)
 
 
 def test_real_pdf_tables_and_scan_rejection():
-    assert parse_file("inventory.pdf", simple_pdf())["inventory"] == [{"sku": "001", "on_hand": "25"}]
+    assert parse_file("inventory.pdf", simple_pdf())["inventory"] == [
+        {"sku": "001", "on_hand": "25"}
+    ]
     with pytest.raises(ImportProblem, match="скан"):
         parse_file("inventory.pdf", simple_pdf(False))
 
@@ -166,8 +211,10 @@ def test_import_preserves_price_and_customer_snapshot(client, tmp_path):
         assert snapshot["sales"][0]["price"] == "120.5"
         assert snapshot["sales"][0]["customer_id"] == "ANON-001"
 
+
 def test_real_legacy_xls():
     import xlwt
+
     book = xlwt.Workbook()
     sheet = book.add_sheet("inventory")
     for i, row in enumerate((("sku", "on_hand"), ("0001", 25))):
@@ -175,18 +222,29 @@ def test_real_legacy_xls():
             sheet.write(i, j, value)
     output = BytesIO()
     book.save(output)
-    assert parse_file("input.xls", output.getvalue())["inventory"] == [{"sku": "0001", "on_hand": "25"}]
+    assert parse_file("input.xls", output.getvalue())["inventory"] == [
+        {"sku": "0001", "on_hand": "25"}
+    ]
 
 
 def test_client_spike_preserves_other_sales_and_price_does_not_set_quantity(client):
     from datetime import date, timedelta
+
     tables = {
         "products": [{"sku": "001", "name": "Товар", "supplier_id": "S1", "active": "true"}],
         "suppliers": [{"supplier_id": "S1", "supplier_name": "Поставщик", "lead_time_days": "7"}],
         "inventory": [{"sku": "001", "on_hand": "0"}],
-        "stockouts": [], "in_transit": [], "sales": [
-            {"sku": "001", "date": (date(2026, 1, 1) + timedelta(days=i)).isoformat(),
-             "units": "10", "customer_id": "REGULAR", "price": "5"} for i in range(28)
+        "stockouts": [],
+        "in_transit": [],
+        "sales": [
+            {
+                "sku": "001",
+                "date": (date(2026, 1, 1) + timedelta(days=i)).isoformat(),
+                "units": "10",
+                "customer_id": "REGULAR",
+                "price": "5",
+            }
+            for i in range(28)
         ],
     }
     tables["sales"].append(dict(tables["sales"][-1], units="1000", customer_id="ONE-OFF"))
@@ -204,8 +262,10 @@ def test_client_spike_preserves_other_sales_and_price_does_not_set_quantity(clie
     other = import_json(client, tables).json()["dataset"]
     unchanged = client.post("/api/v1/recalculate", json={"dataset": other}).json()
     assert unchanged["recommendations"][0]["recommended_qty"] == 140
-    changed = client.post("/api/v1/recalculate", json={"dataset": dataset, "overrides": [
-        {"sku": "001", "in_transit": 200}]}).json()
+    changed = client.post(
+        "/api/v1/recalculate",
+        json={"dataset": dataset, "overrides": [{"sku": "001", "in_transit": 200}]},
+    ).json()
     assert changed["recommendations"][0]["recommended_qty"] == 0
 
 
@@ -223,6 +283,7 @@ def test_export_formula_injection_and_invalid_selection(client):
 
 def test_oversized_stockout_period_rejected_before_expansion(client):
     tables = source_tables()
-    tables["stockouts"] = [{"sku": tables["products"][0]["sku"],
-                           "start_date": "0001-01-01", "end_date": "9999-12-31"}]
+    tables["stockouts"] = [
+        {"sku": tables["products"][0]["sku"], "start_date": "0001-01-01", "end_date": "9999-12-31"}
+    ]
     assert import_json(client, tables).status_code == 413

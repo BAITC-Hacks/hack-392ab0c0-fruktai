@@ -33,9 +33,7 @@ def check_backend_readiness(data_root: Path, dataset: str) -> dict[str, Any]:
     dataset_path = data_root / dataset
     missing = [name for name in REQUIRED_FILES if not (dataset_path / name).is_file()]
     if missing:
-        raise FileNotFoundError(
-            f"{dataset_path} is missing required files: {', '.join(missing)}"
-        )
+        raise FileNotFoundError(f"{dataset_path} is missing required files: {', '.join(missing)}")
 
     schemas = load_schemas()
     with tempfile.TemporaryDirectory(prefix="fruktai-readiness-") as temp:
@@ -54,11 +52,7 @@ def check_backend_readiness(data_root: Path, dataset: str) -> dict[str, Any]:
         if not response["recommendations"]:
             raise AssertionError("dataset produced no active recommendations")
         orderable = next(
-            (
-                item
-                for item in response["recommendations"]
-                if item["recommended_qty"] > 0
-            ),
+            (item for item in response["recommendations"] if item["recommended_qty"] > 0),
             None,
         )
         if orderable is None:
@@ -76,16 +70,12 @@ def check_backend_readiness(data_root: Path, dataset: str) -> dict[str, Any]:
             overrides=[
                 {
                     "sku": orderable["sku"],
-                    "on_hand": orderable["on_hand"]
-                    + orderable["recommended_qty"]
-                    + 1,
+                    "on_hand": orderable["on_hand"] + orderable["recommended_qty"] + 1,
                 }
             ],
         )
         changed_item = next(
-            value
-            for value in changed["recommendations"]
-            if value["sku"] == orderable["sku"]
+            value for value in changed["recommendations"] if value["sku"] == orderable["sku"]
         )
         if changed_item["recommended_qty"] >= orderable["recommended_qty"]:
             raise AssertionError("on_hand override did not lower recommended_qty")
@@ -119,4 +109,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

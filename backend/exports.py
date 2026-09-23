@@ -1,4 +1,5 @@
 """Export only persisted, computed recommendation rows; no automatic 1C writes."""
+
 import csv
 from io import BytesIO, StringIO
 import json
@@ -8,7 +9,13 @@ from database.repository import connect
 from .imports import ImportProblem
 
 EXPORT_HEADERS = [
-    "sku", "name", "supplier_id", "supplier_name", "recommended_qty", "urgency", "reasons",
+    "sku",
+    "name",
+    "supplier_id",
+    "supplier_name",
+    "recommended_qty",
+    "urgency",
+    "reasons",
 ]
 
 
@@ -25,8 +32,12 @@ def export_run(database_path, run_id, format, skus=None):
         run = db.execute("SELECT 1 FROM calculation_runs WHERE run_id=?", (run_id,)).fetchone()
         if run is None:
             raise ImportProblem("Расчёт не найден", 404)
-        rows = [dict(row) for row in db.execute(
-            "SELECT * FROM recommendations WHERE run_id=? ORDER BY supplier_id, sku", (run_id,))]
+        rows = [
+            dict(row)
+            for row in db.execute(
+                "SELECT * FROM recommendations WHERE run_id=? ORDER BY supplier_id, sku", (run_id,)
+            )
+        ]
     if skus:
         selected = set(skus)
         if selected - {row["sku"] for row in rows}:
@@ -43,6 +54,7 @@ def export_run(database_path, run_id, format, skus=None):
         writer.writerows(values)
         return stream.getvalue().encode("utf-8-sig"), "text/csv; charset=utf-8"
     from openpyxl import Workbook
+
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "supplier_orders"
@@ -59,6 +71,7 @@ def export_run(database_path, run_id, format, skus=None):
 
 def template_workbook():
     from openpyxl import Workbook
+
     workbook = Workbook()
     workbook.remove(workbook.active)
     root = Path(__file__).resolve().parents[1] / "data/demo"
@@ -75,9 +88,16 @@ def template_workbook():
             sheet = workbook.create_sheet(name)
             sheet.append(headers)
             for row in reader:
-                extra = {"customer_id": "ANON-001", "price": "100", "warehouse_id": "WH-01",
-                         "category": "Учебная категория", "unit": "ед."}
-                sheet.append([safe_cell(row.get(header, extra.get(header, ""))) for header in headers])
+                extra = {
+                    "customer_id": "ANON-001",
+                    "price": "100",
+                    "warehouse_id": "WH-01",
+                    "category": "Учебная категория",
+                    "unit": "ед.",
+                }
+                sheet.append(
+                    [safe_cell(row.get(header, extra.get(header, ""))) for header in headers]
+                )
             sheet.freeze_panes = "A2"
     stream = BytesIO()
     workbook.save(stream)

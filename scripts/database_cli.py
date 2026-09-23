@@ -112,8 +112,7 @@ def main() -> int:
                 item_details=execution.item_details,
             )
             print(
-                f"Saved run {run_id} with {counts['products']} products "
-                f"to {arguments.db.resolve()}"
+                f"Saved run {run_id} with {counts['products']} products to {arguments.db.resolve()}"
             )
         elif arguments.command == "show":
             readers = {

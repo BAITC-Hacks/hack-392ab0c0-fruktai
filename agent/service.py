@@ -58,16 +58,10 @@ class WorkflowService:
             raise ValueError("FRUKTAI_SAFETY_STOCK_DAYS must be an integer") from error
         return cls(
             data_root=os.getenv("FRUKTAI_DATA_ROOT", "data"),
-            database_path=os.getenv(
-                "FRUKTAI_DATABASE_PATH", "artifacts/fruktai.sqlite"
-            ),
+            database_path=os.getenv("FRUKTAI_DATABASE_PATH", "artifacts/fruktai.sqlite"),
             output_dir=os.getenv("FRUKTAI_RUNS_DIR", "artifacts/runs"),
             safety_stock_days=safety_stock_days,
-            explainer=(
-                OpenAIExplainer.from_environment()
-                if explanations_enabled()
-                else None
-            ),
+            explainer=(OpenAIExplainer.from_environment() if explanations_enabled() else None),
         )
 
     def recalculate(
@@ -124,9 +118,7 @@ class WorkflowService:
 
     def _resolve_dataset(self, dataset: str) -> Path:
         if not isinstance(dataset, str) or DATASET_NAME.fullmatch(dataset) is None:
-            raise DataValidationError(
-                "dataset may contain only Latin letters, digits, '_' and '-'"
-            )
+            raise DataValidationError("dataset may contain only Latin letters, digits, '_' and '-'")
         root = self.data_root.resolve()
         if dataset.startswith("upload_"):
             root = self.database_path.parent.resolve() / "imports"

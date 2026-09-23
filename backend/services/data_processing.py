@@ -17,7 +17,9 @@ def build_daily_demand_series(
     if missing:
         raise ValueError(f"sales missing required columns: {sorted(missing)}")
     src = sales.copy()
-    src["date"] = pd.to_datetime(src["date"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    src["date"] = (
+        pd.to_datetime(src["date"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    )
     if src["date"].isna().any():
         raise ValueError("invalid sales dates")
     src["sku"] = src["sku"].astype(str).str.strip().str.upper()
@@ -26,9 +28,24 @@ def build_daily_demand_series(
         raise ValueError("quantity must be non-negative numeric")
     if "is_return" in src:
         src = src.loc[~src["is_return"].map(_bool)].copy()
-    grouped = src.groupby(["sku", "date"], as_index=False, sort=True)["quantity"].sum().rename(columns={"quantity": "raw_demand"})
+    grouped = (
+        src.groupby(["sku", "date"], as_index=False, sort=True)["quantity"]
+        .sum()
+        .rename(columns={"quantity": "raw_demand"})
+    )
     if grouped.empty:
-        return pd.DataFrame(columns=["date", "sku", "raw_demand", "is_stockout", "is_available", "regular_demand", "estimated_lost_demand", "corrected_demand"])
+        return pd.DataFrame(
+            columns=[
+                "date",
+                "sku",
+                "raw_demand",
+                "is_stockout",
+                "is_available",
+                "regular_demand",
+                "estimated_lost_demand",
+                "corrected_demand",
+            ]
+        )
     sku_values = set(grouped.sku)
     if products is not None and "sku" in products:
         sku_values |= set(products.sku.astype(str).str.strip().str.upper())
@@ -51,13 +68,20 @@ def build_daily_demand_series(
                 base["is_stockout"] = base.date.isin(dates_out)
             elif {"start_date", "end_date"} <= set(st.columns):
                 for row in st.loc[st.sku == sku].itertuples():
-                    base.loc[base.date.between(pd.Timestamp(row.start_date), pd.Timestamp(row.end_date)), "is_stockout"] = True
+                    base.loc[
+                        base.date.between(pd.Timestamp(row.start_date), pd.Timestamp(row.end_date)),
+                        "is_stockout",
+                    ] = True
         base["is_available"] = ~base["is_stockout"]
         base["regular_demand"] = base["raw_demand"]
         base["estimated_lost_demand"] = 0.0
         base["corrected_demand"] = base["regular_demand"]
         rows.append(base)
-    return pd.concat(rows, ignore_index=True).sort_values(["sku", "date"], kind="mergesort").reset_index(drop=True)
+    return (
+        pd.concat(rows, ignore_index=True)
+        .sort_values(["sku", "date"], kind="mergesort")
+        .reset_index(drop=True)
+    )
 
 
 def detect_transaction_outliers(sales: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -65,7 +89,9 @@ def detect_transaction_outliers(sales: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
     src = sales.copy()
     src["date"] = pd.to_datetime(src["date"], errors="coerce").dt.normalize()
     src["sku"] = src["sku"].astype(str).str.strip().str.upper()
-    src["customer_id"] = src.get("customer_id", pd.Series("unknown", index=src.index)).fillna("unknown").astype(str)
+    src["customer_id"] = (
+        src.get("customer_id", pd.Series("unknown", index=src.index)).fillna("unknown").astype(str)
+    )
     src["quantity"] = pd.to_numeric(src["quantity"], errors="raise")
     agg = src.groupby(["sku", "customer_id", "date"], as_index=False, sort=True)["quantity"].sum()
     agg["is_outlier"] = False
@@ -97,7 +123,9 @@ def detect_transaction_outliers(sales: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
         agg.loc[idx, "is_outlier"] = mask.to_numpy() & (share.to_numpy() >= 0.8)
         agg.loc[idx, "outlier_method"] = method
     agg["excluded_from_regular_demand"] = agg.is_outlier
-    annotated = src.merge(agg, on=["sku", "customer_id", "date"], how="left", suffixes=("", "_aggregate"))
+    annotated = src.merge(
+        agg, on=["sku", "customer_id", "date"], how="left", suffixes=("", "_aggregate")
+    )
     summary = agg.loc[agg.is_outlier].copy()
     return annotated, summary
 
@@ -120,12 +148,16 @@ def estimate_lost_demand(daily_demand: pd.DataFrame) -> pd.DataFrame:
             history = history.loc[~history.is_stockout]
             if "is_outlier" in history:
                 history = history.loc[~history.is_outlier]
-            same_weekday = history.loc[history.date.dt.dayofweek == row.date.dayofweek, "regular_demand"]
+            same_weekday = history.loc[
+                history.date.dt.dayofweek == row.date.dayofweek, "regular_demand"
+            ]
             candidates = same_weekday.tail(8)
             if len(candidates) < 3:
                 candidates = history.loc[history.regular_demand > 0].tail(28).regular_demand
             estimate = float(candidates.median()) if len(candidates) else 0.0
             out.loc[row_idx, "estimated_lost_demand"] = max(0.0, estimate - float(row.raw_demand))
             out.loc[row_idx, "corrected_demand"] = max(float(row.regular_demand), estimate)
-    out["corrected_demand"] = np.where(out.is_stockout, out["regular_demand"] + out["estimated_lost_demand"], out["regular_demand"])
+    out["corrected_demand"] = np.where(
+        out.is_stockout, out["regular_demand"] + out["estimated_lost_demand"], out["regular_demand"]
+    )
     return out.reset_index(drop=True)

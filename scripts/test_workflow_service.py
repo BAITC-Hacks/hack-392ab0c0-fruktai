@@ -70,16 +70,11 @@ def main() -> int:
         assert sum(point["is_outlier"] for point in detail["history"]) == 1
         assert sum(point["is_stockout"] for point in detail["history"]) == 2
         assert sum(point["estimated_lost_units"] for point in detail["history"]) > 0
-        assert (
-            detail["calculation"]["recommended_qty"]
-            == recommendation["recommended_qty"]
-        )
+        assert detail["calculation"]["recommended_qty"] == recommendation["recommended_qty"]
 
         override = {
             "sku": "SKU-001",
-            "on_hand": recommendation["on_hand"]
-            + recommendation["recommended_qty"]
-            + 1,
+            "on_hand": recommendation["on_hand"] + recommendation["recommended_qty"] + 1,
         }
         changed = service.recalculate("demo", overrides=[override])
         changed_detail = service.get_item("SKU-001")
@@ -88,17 +83,14 @@ def main() -> int:
             < detail["calculation"]["recommended_qty"]
         )
         assert changed_detail["calculation"]["on_hand"] == override["on_hand"]
-        assert changed_detail["calculation"]["recommended_qty"] == changed[
-            "recommendations"
-        ][0]["recommended_qty"]
+        assert (
+            changed_detail["calculation"]["recommended_qty"]
+            == changed["recommendations"][0]["recommended_qty"]
+        )
 
         with closing(sqlite3.connect(database)) as connection:
-            assert connection.execute(
-                "SELECT COUNT(*) FROM calculation_runs"
-            ).fetchone()[0] == 2
-            assert connection.execute(
-                "SELECT COUNT(*) FROM item_history"
-            ).fetchone()[0] == 56
+            assert connection.execute("SELECT COUNT(*) FROM calculation_runs").fetchone()[0] == 2
+            assert connection.execute("SELECT COUNT(*) FROM item_history").fetchone()[0] == 56
             assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
         try:

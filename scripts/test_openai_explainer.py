@@ -95,9 +95,7 @@ def main() -> int:
         assert request_payload["text"]["format"]["type"] == "json_schema"
         assert request_payload["text"]["format"]["strict"] is True
         model_input = json.loads(request_payload["input"])
-        assert len(model_input["recommendations"]) == len(
-            enriched["recommendations"]
-        )
+        assert len(model_input["recommendations"]) == len(enriched["recommendations"])
         assert "recommended_qty" in model_input["recommendations"][0]
         assert "deterministic_reasons" in model_input["recommendations"][0]
         assert "customer_id" not in request_payload["input"]
@@ -111,14 +109,9 @@ def main() -> int:
                     assert after[field] == value
             assert len(after["reasons"]) == len(before["reasons"]) + 1
             assert after["reasons"][-1].startswith("AI-пояснение:")
-            assert (
-                details[after["sku"]]["calculation"]["reasons"][-1]
-                == after["reasons"][-1]
-            )
+            assert details[after["sku"]]["calculation"]["reasons"][-1] == after["reasons"][-1]
         assert explainer.last_report.status == "completed"
-        assert explainer.last_report.enriched_items == len(
-            enriched["recommendations"]
-        )
+        assert explainer.last_report.enriched_items == len(enriched["recommendations"])
         assert explainer.last_report.attempts == 1
 
         with patch.dict(
@@ -135,9 +128,7 @@ def main() -> int:
 
         attempts = 0
 
-        def transient_then_success(
-            payload: dict[str, Any], timeout: float
-        ) -> dict[str, Any]:
+        def transient_then_success(payload: dict[str, Any], timeout: float) -> dict[str, Any]:
             nonlocal attempts
             attempts += 1
             if attempts < 3:
@@ -163,9 +154,7 @@ def main() -> int:
         assert retrying.last_report.attempts == 3
         assert retry_response != original_response
 
-        def incomplete_transport(
-            payload: dict[str, Any], timeout: float
-        ) -> dict[str, Any]:
+        def incomplete_transport(payload: dict[str, Any], timeout: float) -> dict[str, Any]:
             return structured_response([])
 
         fallback = OpenAIExplainer(
@@ -190,9 +179,7 @@ def main() -> int:
         )
         result = service.recalculate("demo")
         item = service.get_item("SKU-001")
-        assert result["recommendations"][0]["reasons"][-1].startswith(
-            "AI-пояснение:"
-        )
+        assert result["recommendations"][0]["reasons"][-1].startswith("AI-пояснение:")
         assert item["calculation"]["reasons"][-1].startswith("AI-пояснение:")
 
     print("OpenAI explanation funnel offline test: OK")
