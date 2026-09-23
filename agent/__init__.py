@@ -7,10 +7,16 @@ from .orchestrator import (
     run_workflow,
     run_workflow_with_details,
 )
-from .service import DatasetNotFoundError, RecordNotFoundError, WorkflowService
+from .service import (
+    DatabaseError,
+    DatasetNotFoundError,
+    RecordNotFoundError,
+    WorkflowService,
+)
 
 __all__ = [
     "DataValidationError",
+    "DatabaseError",
     "DatasetNotFoundError",
     "ReplenishmentOrchestrator",
     "RecordNotFoundError",

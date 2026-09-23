@@ -22,6 +22,7 @@ An LLM never determines this value.
 - [HTTP API contract](docs/API_CONTRACT.md)
 - [CSV data contract](docs/DATA_CONTRACT.md)
 - [Team integration handoff](docs/INTEGRATION.md)
+- [Backend + SQLite integration guide](docs/BACKEND_DATABASE_INTEGRATION.md)
 - [Response JSON Schema](contracts/recommendation.schema.json)
 
 ## Repository layout
@@ -77,3 +78,7 @@ python scripts/database_cli.py show recommendations
 ```
 
 The generated file is `artifacts/fruktai.sqlite`. Database structure and viewing instructions are in [database/ER_DIAGRAM.md](database/ER_DIAGRAM.md).
+
+## Backend handoff
+
+The current backend branch uses a different upload-based API and calculation model. Before merging it with this branch, follow [docs/BACKEND_DATABASE_INTEGRATION.md](docs/BACKEND_DATABASE_INTEGRATION.md). The guide contains the exact Pydantic models, FastAPI routes, environment variables, six-file data migration, SQLite commands, error mapping, tests, and merge checklist.

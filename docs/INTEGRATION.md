@@ -10,7 +10,8 @@ Backend owner must use:
 - `docs/API_CONTRACT.md` for Pydantic request/response models and HTTP behavior;
 - `docs/DATA_CONTRACT.md` for CSV parsing and validation;
 - `contracts/recommendation.schema.json` for the recalculation response shape;
-- `agent.run_workflow` as the calculation entry point;
+- `agent.WorkflowService` as the backend integration entry point;
+- `docs/BACKEND_DATABASE_INTEGRATION.md` for the exact FastAPI and SQLite handoff;
 - `scripts/test_agent_workflow.py` for local workflow regression;
 - `scripts/smoke_test.py` for integrated API acceptance.
 
@@ -57,6 +58,8 @@ The backend owns:
 - storage of the latest successful result for item drill-down;
 - serialization of item history for `GET /api/v1/items/{sku}`;
 - `backend/Dockerfile` and Python dependencies.
+
+Detailed instructions tailored to the current backend branch are in [BACKEND_DATABASE_INTEGRATION.md](BACKEND_DATABASE_INTEGRATION.md).
 
 The demo data owner must provide all six files under `data/demo/`. At least one SKU must have a positive baseline recommendation so the override smoke test is meaningful.
 

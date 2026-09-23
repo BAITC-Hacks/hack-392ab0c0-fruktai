@@ -19,6 +19,7 @@ from agent import (  # noqa: E402
 )
 from database import RecordNotFoundError  # noqa: E402
 from scripts.test_agent_workflow import build_dataset  # noqa: E402
+from scripts.check_backend_readiness import check_backend_readiness  # noqa: E402
 from scripts.validate_api_contracts import load_schemas, validate  # noqa: E402
 
 
@@ -38,6 +39,10 @@ def main() -> int:
             output_dir=runs,
         )
         schemas = load_schemas()
+
+        readiness = check_backend_readiness(data_root, "demo")
+        assert readiness["items"] == 1
+        assert readiness["before"] > readiness["after"]
 
         baseline = service.recalculate("demo")
         validate(

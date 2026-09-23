@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from database import (
+    DatabaseError,
     RecordNotFoundError,
     latest_item_detail,
     load_csv_dataset,
@@ -39,6 +42,24 @@ class WorkflowService:
         if safety_stock_days < 0:
             raise ValueError("safety_stock_days must be non-negative")
         self.safety_stock_days = safety_stock_days
+        self._recalculation_lock = Lock()
+
+    @classmethod
+    def from_environment(cls) -> "WorkflowService":
+        """Build the backend singleton from documented environment variables."""
+
+        try:
+            safety_stock_days = int(os.getenv("FRUKTAI_SAFETY_STOCK_DAYS", "7"))
+        except ValueError as error:
+            raise ValueError("FRUKTAI_SAFETY_STOCK_DAYS must be an integer") from error
+        return cls(
+            data_root=os.getenv("FRUKTAI_DATA_ROOT", "data"),
+            database_path=os.getenv(
+                "FRUKTAI_DATABASE_PATH", "artifacts/fruktai.sqlite"
+            ),
+            output_dir=os.getenv("FRUKTAI_RUNS_DIR", "artifacts/runs"),
+            safety_stock_days=safety_stock_days,
+        )
 
     def recalculate(
         self,
@@ -47,23 +68,26 @@ class WorkflowService:
     ) -> dict[str, Any]:
         """Run, validate, persist, and return the fixed API response."""
 
-        dataset_path = self._resolve_dataset(dataset)
-        # Store only source rows that passed the database boundary validation.
-        load_csv_dataset(self.database_path, dataset_path)
-        execution = run_workflow_with_details(
-            dataset_path,
-            overrides=overrides or [],
-            safety_stock_days=self.safety_stock_days,
-            output_dir=self.output_dir,
-        )
-        save_calculation(
-            self.database_path,
-            dataset,
-            execution.response,
-            overrides=overrides or [],
-            item_details=execution.item_details,
-        )
-        return execution.response
+        # One process may receive concurrent sync FastAPI requests. Serializing
+        # the source sync + calculation + persistence keeps each run coherent.
+        with self._recalculation_lock:
+            dataset_path = self._resolve_dataset(dataset)
+            # Store only source rows that passed the database boundary validation.
+            load_csv_dataset(self.database_path, dataset_path)
+            execution = run_workflow_with_details(
+                dataset_path,
+                overrides=overrides or [],
+                safety_stock_days=self.safety_stock_days,
+                output_dir=self.output_dir,
+            )
+            save_calculation(
+                self.database_path,
+                dataset,
+                execution.response,
+                overrides=overrides or [],
+                item_details=execution.item_details,
+            )
+            return execution.response
 
     def get_item(self, sku: str) -> dict[str, Any]:
         """Return latest persisted drill-down data for ``GET /items/{sku}``."""
@@ -86,7 +110,7 @@ class WorkflowService:
 
 __all__ = [
     "DatasetNotFoundError",
+    "DatabaseError",
     "RecordNotFoundError",
     "WorkflowService",
 ]
-

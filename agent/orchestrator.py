@@ -562,6 +562,10 @@ class ReplenishmentOrchestrator:
                 raise DataValidationError(
                     f"override {index} has unknown fields: {', '.join(sorted(unknown))}"
                 )
+            if "on_hand" not in override and "in_transit" not in override:
+                raise DataValidationError(
+                    f"override {index} must include on_hand or in_transit"
+                )
             sku = self._nonempty(override.get("sku"), f"override {index} sku")
             if sku not in state.products:
                 raise DataValidationError(f"override references unknown SKU {sku}")

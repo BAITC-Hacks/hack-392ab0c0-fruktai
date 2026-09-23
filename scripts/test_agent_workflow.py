@@ -128,6 +128,17 @@ def main() -> int:
         else:
             raise AssertionError("negative inventory must fail validation")
 
+        try:
+            run_workflow(
+                dataset,
+                overrides=[{"sku": "SKU-001"}],
+                output_dir=output,
+            )
+        except DataValidationError:
+            pass
+        else:
+            raise AssertionError("override without values must fail validation")
+
     print("agent workflow test: OK")
     return 0
 
