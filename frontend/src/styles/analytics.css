@@ -1,0 +1,106 @@
+/* Analytics and data are separate destinations, not competing dashboard chrome. */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.analytics-sidebar,
+.comparison-view,
+.data-view,
+.activity-view {
+  background: white;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius);
+  padding: 22px;
+  min-width: 0;
+}
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.section-heading h2 {
+  font-size: 17px;
+  line-height: 24px;
+}
+.section-heading p,
+.view-heading p {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.risk-distribution {
+  margin-top: 22px;
+  display: grid;
+  gap: 20px;
+}
+.risk-distribution button {
+  background: white;
+  border: 0;
+  padding: 0;
+  text-align: left;
+}
+.risk-distribution button:hover strong {
+  color: var(--brand);
+}
+.risk-distribution-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+.risk-distribution-label strong {
+  font-weight: 500;
+}
+.risk-distribution-label > svg:last-child {
+  margin-left: auto;
+  color: var(--muted);
+}
+.risk-distribution-value {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 28px;
+  margin: 8px 0;
+}
+.risk-distribution-value small {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+.distribution-track {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: #f2f4f7;
+  overflow: hidden;
+}
+.distribution-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+.analytics-footnote {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 20px;
+}
+.comparison-chart {
+  margin-top: 24px;
+}
+.comparison-chart h3 {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.comparison-chart h3 span {
+  float: right;
+  color: var(--muted);
+}
+.chart-empty {
+  padding: 24px 0;
+  color: var(--muted);
+}

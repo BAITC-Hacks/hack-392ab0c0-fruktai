@@ -1,0 +1,187 @@
+/* Item evidence and what-if simulation. */
+.dialog-open {
+  overflow: hidden;
+}
+.drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: 550px;
+  max-width: 100vw;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  color: var(--ink);
+  background: white;
+  overflow-y: auto;
+  box-shadow: -8px 0 30px #10182812;
+  animation: drawer-in 180ms ease-out;
+}
+.drawer::backdrop {
+  background: #10182836;
+}
+.wide-drawer {
+  width: 610px;
+}
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line-subtle);
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 5;
+  font-size: 12px;
+  color: var(--muted);
+  height: 64px;
+}
+.drawer-body {
+  padding: 24px;
+}
+.product-detail-heading h2 {
+  margin-bottom: 8px;
+}
+.product-detail-heading p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.product-detail-heading p span {
+  margin: 0 6px;
+  color: #98a2b3;
+}
+.detail-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+.detail-status > span:last-child {
+  font-size: 12px;
+  color: var(--muted);
+}
+.recommendation-result {
+  background: #f5f8ff;
+  border: 1px solid #d1e0ff;
+  border-radius: 8px;
+  padding: 20px;
+}
+.recommendation-result > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.recommendation-result span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.recommendation-result strong {
+  font-size: 34px;
+  font-weight: 600;
+  color: var(--brand);
+  letter-spacing: -0.7px;
+  line-height: 42px;
+}
+.recommendation-result strong small {
+  font-size: 15px;
+  font-weight: 400;
+}
+.recommendation-result p {
+  font-size: 12px;
+  margin-top: 8px;
+  color: var(--text-secondary);
+}
+.detail-section {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.detail-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+.detail-section h3 svg {
+  color: var(--muted);
+}
+.calculation-lines {
+  margin: 0;
+}
+.calculation-lines > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f2f4f7;
+  font-size: 13px;
+}
+.calculation-lines dt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-secondary);
+}
+.calculation-lines dd {
+  margin: 0;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.calculation-lines dd small {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 11px;
+}
+.formula-sign {
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  background: #f2f4f7;
+  color: var(--muted);
+  border-radius: 4px;
+}
+.calculation-lines .total-line {
+  border-bottom: 0;
+  padding-top: 14px;
+}
+.total-line dt,
+.total-line dd {
+  font-weight: 600;
+  color: var(--brand);
+}
+.formula-label {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 5px;
+  margin-top: 8px;
+}
+.formula-label span {
+  color: var(--muted);
+}
+.reason-details {
+  font-size: 12px;
+  margin-top: 16px;
+}
+.reason-details summary {
+  color: var(--brand);
+  min-height: 28px;
+}
+.reason-details ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+}
+.reason-details li {
+  line-height: 1.65;
+  margin-top: 6px;
+}

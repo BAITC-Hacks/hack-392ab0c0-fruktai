@@ -1,0 +1,230 @@
+.table-scroll {
+  overflow: auto;
+  max-height: 560px;
+  scrollbar-width: thin;
+}
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  min-width: 1060px;
+}
+th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f9fafb;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  height: 40px;
+  padding: 8px 10px;
+  border-block: 1px solid var(--line-subtle);
+}
+td {
+  background: white;
+  padding: 6px 10px;
+  height: 52px;
+  border-bottom: 1px solid #eaecf0;
+  font-size: 13px;
+  vertical-align: middle;
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+.numeric small {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.select-column {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  text-align: center;
+  width: 38px;
+  min-width: 38px;
+}
+th.select-column {
+  z-index: 4;
+}
+.product-column {
+  position: sticky;
+  left: 38px;
+  min-width: 208px;
+  max-width: 260px;
+  width: 224px;
+  z-index: 1;
+  border-right: 1px solid #f2f4f7;
+}
+th.product-column {
+  z-index: 3;
+}
+.column-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  min-height: 26px;
+  font-size: inherit;
+  color: inherit;
+}
+.column-sort:hover {
+  color: var(--brand);
+}
+.column-sort svg {
+  color: var(--muted);
+}
+.product-cell {
+  border: 0;
+  background: transparent;
+  width: 100%;
+  min-height: 40px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+.product-cell strong {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 17px;
+  display: block;
+  max-width: 218px;
+}
+.product-cell small {
+  font-size: 10px;
+  color: var(--muted);
+  display: block;
+  margin-top: 2px;
+  letter-spacing: 0.2px;
+}
+.product-cell:hover strong {
+  color: var(--brand);
+}
+.supplier-cell {
+  width: 126px;
+  min-width: 112px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.supplier-cell small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 3px;
+}
+.order-number {
+  font-weight: 600;
+  color: var(--brand);
+  background: #f7faff;
+}
+th.order-heading {
+  color: var(--brand);
+  background: #eff4ff;
+}
+.coverage-low {
+  color: var(--danger);
+}
+tbody tr:hover td {
+  background: #f8fafd;
+}
+.active-row td,
+.selected-row td,
+.selected-row:hover td {
+  background: var(--selected);
+}
+.supplier-row th {
+  position: static;
+  background: #f2f4f7;
+  padding: 10px 16px;
+  color: var(--ink);
+  font-size: 12px;
+}
+.supplier-row th > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.supplier-row span {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.supplier-row b {
+  margin-left: auto;
+  color: var(--brand);
+  font-weight: 500;
+}
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  min-height: 26px;
+  border-radius: 5px;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+}
+.status-badge.danger {
+  color: var(--danger);
+  background: var(--risk-bg);
+}
+.status-badge.warning {
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+.status-badge.neutral {
+  color: #475467;
+  background: #f2f4f7;
+}
+.table-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--line-subtle);
+  font-size: 11px;
+  color: var(--muted);
+}
+.table-footer > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.selection-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  background: var(--selected);
+  border-top: 1px solid #b2ccff;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.selection-bar > span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--brand);
+}
+.selection-bar > div {
+  display: flex;
+  gap: 8px;
+}
+.selection-bar small {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.mobile-products {
+  display: none;
+}

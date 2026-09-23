@@ -1,0 +1,142 @@
+/* Linear-inspired quiet shell; the purchasing queue stays the focal point. */
+.app-sidebar {
+  width: var(--sidebar-width);
+  position: fixed;
+  inset: 0 auto 0 0;
+  background: #f5f6f8;
+  border-right: 1px solid var(--line-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 64px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.brand-symbol {
+  display: grid;
+  place-items: center;
+  color: var(--brand);
+}
+.brand strong {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -1px;
+}
+.brand strong > span {
+  color: var(--brand);
+}
+.workspace-badge {
+  margin-left: auto;
+  font-size: 8px;
+  letter-spacing: 0.7px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px;
+}
+.workspace-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 16px 28px;
+}
+.workspace-avatar {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-subtle);
+  border-radius: 7px;
+  background: white;
+  font-weight: 600;
+  font-size: 12px;
+}
+.workspace-identity strong {
+  font-size: 12px;
+  display: block;
+  font-weight: 600;
+}
+.workspace-identity small {
+  font-size: 11px;
+  display: block;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.nav-section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 0 20px 10px;
+}
+.app-sidebar nav {
+  padding: 0 10px;
+  display: grid;
+  gap: 4px;
+}
+.app-sidebar nav button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-height: 42px;
+}
+.app-sidebar nav button:hover {
+  background: #eceff3;
+}
+.app-sidebar nav button.is-active {
+  background: #e8effb;
+  color: var(--brand);
+  font-weight: 500;
+}
+.app-sidebar nav b {
+  margin-left: auto;
+  min-width: 22px;
+  text-align: center;
+  font-size: 11px;
+  background: white;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 20px 16px 16px;
+}
+.workflow-note {
+  border: 1px solid var(--line-subtle);
+  background: #fafbfc;
+  padding: 14px 12px;
+  border-radius: 8px;
+}
+.workflow-note svg {
+  color: var(--brand);
+  margin-bottom: 8px;
+}
+.workflow-note strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+}
+.workflow-note p {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.sidebar-version {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 20px;
+}

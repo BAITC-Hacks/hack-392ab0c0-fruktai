@@ -1,0 +1,221 @@
+.app-shell {
+  margin-left: var(--sidebar-width);
+  min-width: 0;
+}
+.app-topbar {
+  height: 64px;
+  background: white;
+  border-bottom: 1px solid var(--line-subtle);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 28px;
+}
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.breadcrumbs strong {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.topbar-context {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.warehouse-label,
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.connection-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.connection-status.has-error i {
+  background: var(--danger);
+}
+.avatar {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line-subtle);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #f2f4f7;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+}
+.mobile-nav-toggle,
+.nav-scrim {
+  display: none;
+}
+main {
+  max-width: 1640px;
+  margin: 0 auto;
+  padding: 24px 28px;
+  min-width: 0;
+}
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.eyebrow {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.page-heading p {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 7px;
+}
+.heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.button-count {
+  background: #ffffff26;
+  border-radius: 4px;
+  padding: 0 5px;
+  min-width: 20px;
+  font-size: 11px;
+}
+.context-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--muted);
+  font-size: 11px;
+  margin: 16px 0 20px;
+}
+.dataset-badge {
+  padding: 4px 7px;
+  background: #eef0f4;
+  border-radius: 4px;
+  color: var(--text-secondary);
+}
+.source-freshness {
+  border-left: 1px solid var(--line);
+  padding-left: 16px;
+}
+.context-link {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--brand);
+  margin-left: auto;
+  min-height: 28px;
+  font-size: 11px;
+}
+.context-link:hover {
+  text-decoration: underline;
+}
+.risk-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #fffaf8;
+  border: 1px solid #f2d4c9;
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+}
+.risk-banner-icon {
+  color: var(--danger);
+  width: 32px;
+  display: grid;
+  place-items: center;
+}
+.risk-banner strong {
+  font-weight: 500;
+  font-size: 13px;
+}
+.risk-banner p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+.risk-banner button {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--danger);
+  background: transparent;
+  border: 0;
+  white-space: nowrap;
+  min-height: 36px;
+  font-size: 12px;
+}
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.kpi {
+  min-height: 104px;
+  background: white;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: left;
+  min-width: 0;
+}
+button.kpi:hover {
+  border-color: #a4bcfd;
+  background: #fbfcff;
+}
+.kpi-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.kpi-label svg {
+  color: var(--muted);
+}
+.kpi strong {
+  display: block;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.8px;
+  line-height: 38px;
+  margin: 6px 0 4px;
+  overflow-wrap: anywhere;
+}
+.kpi:nth-child(2) strong {
+  font-size: 24px;
+  letter-spacing: -0.5px;
+}
+.kpi-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+  display: block;
+}
+.kpi-mobile-toggle {
+  display: none;
+}

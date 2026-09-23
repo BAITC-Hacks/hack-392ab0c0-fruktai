@@ -1,0 +1,88 @@
+@media (min-width: 1700px) {
+  .product-cell strong {
+    font-size: 13px;
+  }
+  .supplier-cell {
+    font-size: 12px;
+  }
+}
+@media (max-width: 1279px) {
+  :root {
+    --sidebar-width: 200px;
+  }
+  .workspace-badge {
+    display: none;
+  }
+  main {
+    padding: 24px;
+  }
+  .app-topbar {
+    padding-inline: 24px;
+  }
+  .kpis {
+    gap: 8px;
+  }
+  .kpi {
+    padding: 12px;
+  }
+  .kpi-label {
+    font-size: 11px;
+  }
+  .kpi-label svg {
+    display: none;
+  }
+  .filters-main {
+    grid-template-columns: minmax(160px, 1fr) 160px 150px;
+  }
+  .queue-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .overview-grid {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 16px;
+  }
+  .sources-layout {
+    grid-template-columns: 1fr;
+  }
+  .source-freshness {
+    border: 0;
+    padding-left: 0;
+  }
+}
+@media (max-width: 1023px) {
+  :root {
+    --sidebar-width: 0px;
+  }
+  .app-sidebar {
+    width: 224px;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+  }
+  .app-sidebar.is-open {
+    transform: translateX(0);
+  }
+  .mobile-nav-toggle {
+    display: inline-flex;
+  }
+  .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: #10182855;
+    border: 0;
+  }
+  .topbar-context {
+    gap: 12px;
+  }
+  .overview-grid {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+  .agent-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .page-heading {
+    align-items: flex-start;
+  }
+}
