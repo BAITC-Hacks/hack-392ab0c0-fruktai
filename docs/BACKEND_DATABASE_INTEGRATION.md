@@ -120,6 +120,11 @@ scripts/
 | `FRUKTAI_DATABASE_PATH` | `artifacts/fruktai.sqlite` | Файл SQLite |
 | `FRUKTAI_RUNS_DIR` | `artifacts/runs` | JSON-журнал запусков |
 | `FRUKTAI_SAFETY_STOCK_DAYS` | `7` | Дни страхового запаса |
+| `OPENAI_API_KEY` | — | Секретный API-ключ; нужен только при включённом LLM |
+| `OPENAI_MODEL` | `gpt-6-astra` | Модель для текстового объяснения |
+| `OPENAI_EXPLANATIONS_ENABLED` | `false` | Включить необязательный explanation layer |
+| `OPENAI_TIMEOUT_SECONDS` | `20` | Timeout одного Responses API request |
+| `OPENAI_MAX_EXPLANATION_ITEMS` | `20` | Максимум LLM-вызовов на один run |
 
 Backend создаёт сервис один раз при импорте приложения:
 
@@ -420,6 +425,7 @@ python scripts/validate_api_contracts.py
 python scripts/test_agent_workflow.py
 python scripts/test_database.py
 python scripts/test_workflow_service.py
+python scripts/test_openai_explainer.py
 python scripts/check_backend_readiness.py --data-root data --dataset demo
 python -m pytest tests
 python scripts/smoke_test.py --base-url http://127.0.0.1:8000

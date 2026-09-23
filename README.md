@@ -23,6 +23,7 @@ An LLM never determines this value.
 - [CSV data contract](docs/DATA_CONTRACT.md)
 - [Team integration handoff](docs/INTEGRATION.md)
 - [Backend + SQLite integration guide](docs/BACKEND_DATABASE_INTEGRATION.md)
+- [Optional OpenAI explanation layer](docs/OPENAI_INTEGRATION.md)
 - [Response JSON Schema](contracts/recommendation.schema.json)
 
 ## Repository layout
@@ -47,6 +48,7 @@ python scripts/validate_api_contracts.py
 python scripts/test_agent_workflow.py
 python scripts/test_database.py
 python scripts/test_workflow_service.py
+python scripts/test_openai_explainer.py
 ```
 
 The test creates an isolated temporary dataset, executes all seven workflow steps, verifies outlier and stockout handling, checks negative-inventory validation, persists a run, and confirms that increasing `on_hand` lowers the recommendation.
@@ -78,6 +80,10 @@ python scripts/database_cli.py show recommendations
 ```
 
 The generated file is `artifacts/fruktai.sqlite`. Database structure and viewing instructions are in [database/ER_DIAGRAM.md](database/ER_DIAGRAM.md).
+
+## Optional OpenAI explanations
+
+OpenAI may add a short natural-language element to `reasons` after calculation. It cannot change `recommended_qty` or any other calculation field. Configuration, fallback behavior, cost controls, and tests are documented in [docs/OPENAI_INTEGRATION.md](docs/OPENAI_INTEGRATION.md).
 
 ## Backend handoff
 

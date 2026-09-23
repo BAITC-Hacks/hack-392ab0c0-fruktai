@@ -16,6 +16,7 @@ from database import (
     save_calculation,
 )
 
+from .openai_explainer import OpenAIExplainer, explanations_enabled
 from .orchestrator import DataValidationError, run_workflow_with_details
 
 
@@ -35,6 +36,7 @@ class WorkflowService:
         database_path: str | Path,
         output_dir: str | Path | None = None,
         safety_stock_days: int = 7,
+        explainer: OpenAIExplainer | None = None,
     ) -> None:
         self.data_root = Path(data_root)
         self.database_path = Path(database_path)
@@ -42,6 +44,7 @@ class WorkflowService:
         if safety_stock_days < 0:
             raise ValueError("safety_stock_days must be non-negative")
         self.safety_stock_days = safety_stock_days
+        self.explainer = explainer
         self._recalculation_lock = Lock()
 
     @classmethod
@@ -59,6 +62,11 @@ class WorkflowService:
             ),
             output_dir=os.getenv("FRUKTAI_RUNS_DIR", "artifacts/runs"),
             safety_stock_days=safety_stock_days,
+            explainer=(
+                OpenAIExplainer.from_environment()
+                if explanations_enabled()
+                else None
+            ),
         )
 
     def recalculate(
@@ -80,14 +88,21 @@ class WorkflowService:
                 safety_stock_days=self.safety_stock_days,
                 output_dir=self.output_dir,
             )
+            response = execution.response
+            item_details = execution.item_details
+            if self.explainer is not None:
+                response, item_details = self.explainer.enrich(
+                    response,
+                    item_details,
+                )
             save_calculation(
                 self.database_path,
                 dataset,
-                execution.response,
+                response,
                 overrides=overrides or [],
-                item_details=execution.item_details,
+                item_details=item_details,
             )
-            return execution.response
+            return response
 
     def get_item(self, sku: str) -> dict[str, Any]:
         """Return latest persisted drill-down data for ``GET /items/{sku}``."""
