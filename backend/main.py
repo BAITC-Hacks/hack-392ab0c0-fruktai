@@ -11,6 +11,7 @@ from math import ceil
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 
+from .ai_explainer import OpenAIExplainer, explanations_enabled
 from .calculation import calculate_recommendations
 from .schemas import ApprovalRequest, ApprovalResponse, ContractItemResponse, ContractRecalculateResponse, HealthResponse, RecalculateRequest, SummaryResponse
 from database import DatabaseError, initialize_database, latest_item_detail, latest_summary, latest_recommendations, persist_run, set_approval
@@ -18,11 +19,16 @@ from database import DatabaseError, initialize_database, latest_item_detail, lat
 app = FastAPI(title="Supplier Replenishment API", version="1.0.0")
 _latest: dict[str, object] = {}
 _approved = False
+_ai_explainer: OpenAIExplainer | None = None
 
 
 @app.on_event("startup")
 def initialize_storage() -> None:
+    global _ai_explainer
     initialize_database()
+    _ai_explainer = (
+        OpenAIExplainer.from_environment() if explanations_enabled() else None
+    )
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -76,6 +82,9 @@ def _read_dataset(dataset: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFram
         unknown = set(source[name].sku) - set(products.sku)
         if unknown:
             raise ValueError(f"{name}.csv contains unknown SKUs: {sorted(unknown)}")
+        # Inactive products are deliberately absent from this run's inventory and
+        # recommendation set, so exclude their historical rows from persistence too.
+        source[name] = source[name].loc[source[name].sku.isin(active_skus)].copy()
     inventory = source["inventory"].merge(active_products, on="sku", how="inner").merge(suppliers, on="supplier_id", how="left")
     if inventory["supplier_name"].isna().any():
         raise ValueError("products reference a missing supplier")
@@ -91,8 +100,14 @@ def _read_dataset(dataset: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFram
         start, end = pd.Timestamp(row.start_date).normalize(), pd.Timestamp(row.end_date).normalize()
         if end < start:
             raise ValueError("stockout end_date is before start_date")
+        # Sales recorded during an explicitly declared stockout are censored
+        # observations, not evidence of normal demand.
+        affected = (sales.sku == row.sku) & sales.date.between(start, end)
+        sales.loc[affected, "stockout"] = True
+        observed_stockout_dates = set(sales.loc[affected, "date"])
         for day in pd.date_range(start, end, freq="D"):
-            stockout_rows.append({"date": day, "sku": row.sku, "quantity": 0.0, "customer_id": "anonymized-unavailable", "stockout": True})
+            if day not in observed_stockout_dates:
+                stockout_rows.append({"date": day, "sku": row.sku, "quantity": 0.0, "customer_id": "anonymized-unavailable", "stockout": True})
     if stockout_rows:
         sales = pd.concat([sales, pd.DataFrame(stockout_rows)], ignore_index=True)
 
@@ -179,6 +194,8 @@ def recalculate(request: RecalculateRequest) -> ContractRecalculateResponse:
                 ]
             ],
         }
+        if _ai_explainer is not None:
+            response, _ = _ai_explainer.enrich(response)
         run_id = persist_run(sales, source_inventory, response, override_map, transit, dataset=request.dataset)
         response["run_id"] = run_id
         # Public calculations and all drill-down data now survive process restarts.
