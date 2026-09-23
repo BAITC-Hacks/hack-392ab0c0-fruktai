@@ -174,6 +174,8 @@ def load_schemas() -> dict[str, dict[str, Any]]:
         check_references(schema, schema)
         schemas[path.name] = schema
     expected = {
+        "ai-explanation.input.schema.json",
+        "ai-explanation.output.schema.json",
         "health.response.schema.json",
         "recalculate.request.schema.json",
         "recommendation.schema.json",
@@ -255,6 +257,59 @@ def main() -> int:
         },
     }
     validate(item_response, item_schema, item_schema)
+
+    ai_input_schema = schemas["ai-explanation.input.schema.json"]
+    ai_input = {
+        "recommendations": [
+            {
+                "sku": "SKU-001",
+                "name": "Contract test item",
+                "supplier_id": "SUP-001",
+                "supplier_name": "Contract test supplier",
+                "recommended_qty": 20,
+                "urgency": "high",
+                "on_hand": 10,
+                "in_transit": 5,
+                "lead_time_days": 7,
+                "avg_daily_demand": 5.0,
+                "forecast_demand": 35.0,
+                "safety_stock": 35.0,
+                "seasonality_factor": 1.0,
+                "growth_factor": 1.0,
+                "stockout_compensation": 0.0,
+                "outlier_units_removed": 0.0,
+                "days_of_cover": 3.0,
+                "deterministic_reasons": ["Contract validation fixture"],
+            }
+        ]
+    }
+    validate(ai_input, ai_input_schema, ai_input_schema)
+    ai_output_schema = schemas["ai-explanation.output.schema.json"]
+    validate(
+        {
+            "explanations": [
+                {
+                    "sku": "SKU-001",
+                    "explanation": "Краткое проверяемое объяснение.",
+                }
+            ]
+        },
+        ai_output_schema,
+        ai_output_schema,
+    )
+    expect_invalid(
+        {
+            "explanations": [
+                {
+                    "sku": "SKU-001",
+                    "explanation": "Краткое объяснение.",
+                    "recommended_qty": 999,
+                }
+            ]
+        },
+        ai_output_schema,
+        "AI output attempting to set quantity",
+    )
 
     recommendation_schema = schemas["recommendation.schema.json"]
     with tempfile.TemporaryDirectory(prefix="fruktai-contract-") as temp:

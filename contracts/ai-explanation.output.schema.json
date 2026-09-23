@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fruktai.local/contracts/ai-explanation.output.schema.json",
+  "title": "FruktAI AI explanation output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["explanations"],
+  "properties": {
+    "explanations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sku", "explanation"],
+        "properties": {
+          "sku": { "type": "string", "minLength": 1 },
+          "explanation": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

@@ -24,6 +24,7 @@ An LLM never determines this value.
 - [Team integration handoff](docs/INTEGRATION.md)
 - [Backend + SQLite integration guide](docs/BACKEND_DATABASE_INTEGRATION.md)
 - [Optional OpenAI explanation layer](docs/OPENAI_INTEGRATION.md)
+- [AI input/output contract and full funnel](docs/AI_API_CONTRACT.md)
 - [Response JSON Schema](contracts/recommendation.schema.json)
 
 ## Repository layout
@@ -83,7 +84,7 @@ The generated file is `artifacts/fruktai.sqlite`. Database structure and viewing
 
 ## Optional OpenAI explanations
 
-OpenAI may add a short natural-language element to `reasons` after calculation. It cannot change `recommended_qty` or any other calculation field. Configuration, fallback behavior, cost controls, and tests are documented in [docs/OPENAI_INTEGRATION.md](docs/OPENAI_INTEGRATION.md).
+OpenAI may add a short natural-language element to `reasons` after calculation. One batched, strictly structured request covers the selected SKUs; exact-SKU validation and protected-field checks prevent the model from changing `recommended_qty` or any other calculation field. The complete data funnel is documented in [docs/AI_API_CONTRACT.md](docs/AI_API_CONTRACT.md), and runtime configuration is in [docs/OPENAI_INTEGRATION.md](docs/OPENAI_INTEGRATION.md).
 
 ## Backend handoff
 

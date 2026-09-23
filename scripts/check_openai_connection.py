@@ -14,7 +14,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from agent import OpenAIExplainer, OpenAIExplanationError  # noqa: E402
+from agent import OpenAIAPIError, OpenAIExplainer  # noqa: E402
 
 
 ALLOWED_ENV = {
@@ -22,6 +22,8 @@ ALLOWED_ENV = {
     "OPENAI_MODEL",
     "OPENAI_TIMEOUT_SECONDS",
     "OPENAI_MAX_EXPLANATION_ITEMS",
+    "OPENAI_MAX_RETRIES",
+    "OPENAI_RETRY_BASE_SECONDS",
 }
 
 
@@ -52,6 +54,8 @@ def main() -> int:
             {
                 "sku": "CHECK-001",
                 "name": "Проверка подключения",
+                "supplier_id": "CHECK-SUPPLIER",
+                "supplier_name": "Тестовый поставщик",
                 "recommended_qty": 10,
                 "urgency": "medium",
                 "on_hand": 5,
@@ -68,7 +72,7 @@ def main() -> int:
                 "reasons": ["Connection check with deterministic facts"],
             }
         )
-    except (FileNotFoundError, OpenAIExplanationError, ValueError) as error:
+    except (FileNotFoundError, OpenAIAPIError, ValueError) as error:
         print(f"OpenAI connection: FAILED: {error}", file=sys.stderr)
         return 1
     print(f"OpenAI connection: OK (model={explainer.model})")

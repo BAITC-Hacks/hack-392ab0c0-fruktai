@@ -7,7 +7,12 @@ from .orchestrator import (
     run_workflow,
     run_workflow_with_details,
 )
-from .openai_explainer import OpenAIExplainer, OpenAIExplanationError
+from .openai_client import OpenAIAPIError, OpenAIResponsesClient
+from .openai_explainer import (
+    AIEnrichmentReport,
+    OpenAIExplainer,
+    OpenAIExplanationError,
+)
 from .service import (
     DatabaseError,
     DatasetNotFoundError,
@@ -19,8 +24,11 @@ __all__ = [
     "DataValidationError",
     "DatabaseError",
     "DatasetNotFoundError",
+    "AIEnrichmentReport",
+    "OpenAIAPIError",
     "OpenAIExplainer",
     "OpenAIExplanationError",
+    "OpenAIResponsesClient",
     "ReplenishmentOrchestrator",
     "RecordNotFoundError",
     "WorkflowExecution",

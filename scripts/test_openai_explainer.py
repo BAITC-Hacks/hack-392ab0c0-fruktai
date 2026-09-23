@@ -1,8 +1,9 @@
-"""Offline tests proving that AI text cannot modify calculated values."""
+"""Offline tests for the complete OpenAI explanation funnel."""
 
 from __future__ import annotations
 
 import copy
+import json
 import os
 import sys
 import tempfile
@@ -14,32 +15,50 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from agent import (  # noqa: E402
+    OpenAIAPIError,
     OpenAIExplainer,
-    OpenAIExplanationError,
     WorkflowService,
     run_workflow_with_details,
 )
 from scripts.test_agent_workflow import build_dataset  # noqa: E402
 
 
-def successful_transport(
-    requests: list[dict[str, Any]],
-):
+def structured_response(explanations: list[dict[str, str]]) -> dict[str, Any]:
+    return {
+        "status": "completed",
+        "output": [
+            {
+                "type": "message",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": json.dumps(
+                            {"explanations": explanations},
+                            ensure_ascii=False,
+                        ),
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def successful_transport(requests: list[dict[str, Any]]):
     def send(payload: dict[str, Any], timeout: float) -> dict[str, Any]:
         requests.append({"payload": copy.deepcopy(payload), "timeout": timeout})
-        return {
-            "output": [
+        model_input = json.loads(payload["input"])
+        return structured_response(
+            [
                 {
-                    "type": "message",
-                    "content": [
-                        {
-                            "type": "output_text",
-                            "text": "Заказ нужен для покрытия спроса на срок поставки и страхового запаса.",
-                        }
-                    ],
+                    "sku": item["sku"],
+                    "explanation": (
+                        "Заказ покрывает прогноз на срок поставки и страховой запас "
+                        "с учётом доступного остатка и товара в пути."
+                    ),
                 }
+                for item in model_input["recommendations"]
             ]
-        }
+        )
 
     return send
 
@@ -60,6 +79,7 @@ def main() -> int:
             api_key="test-key-never-sent",
             model="test-model",
             transport=successful_transport(requests),
+            sleeper=lambda _: None,
         )
         enriched, details = explainer.enrich(
             execution.response,
@@ -68,7 +88,20 @@ def main() -> int:
 
         assert execution.response == original_response
         assert execution.item_details == original_details
-        assert len(requests) == len(enriched["recommendations"])
+        assert len(requests) == 1, "all SKUs must use one batch API request"
+        request_payload = requests[0]["payload"]
+        assert request_payload["model"] == "test-model"
+        assert request_payload["store"] is False
+        assert request_payload["text"]["format"]["type"] == "json_schema"
+        assert request_payload["text"]["format"]["strict"] is True
+        model_input = json.loads(request_payload["input"])
+        assert len(model_input["recommendations"]) == len(
+            enriched["recommendations"]
+        )
+        assert "recommended_qty" in model_input["recommendations"][0]
+        assert "deterministic_reasons" in model_input["recommendations"][0]
+        assert "customer_id" not in request_payload["input"]
+
         for before, after in zip(
             original_response["recommendations"],
             enriched["recommendations"],
@@ -82,27 +115,63 @@ def main() -> int:
                 details[after["sku"]]["calculation"]["reasons"][-1]
                 == after["reasons"][-1]
             )
-        assert requests[0]["payload"]["model"] == "test-model"
-        assert "recommended_qty" in requests[0]["payload"]["input"]
+        assert explainer.last_report.status == "completed"
+        assert explainer.last_report.enriched_items == len(
+            enriched["recommendations"]
+        )
+        assert explainer.last_report.attempts == 1
 
         with patch.dict(
             os.environ,
             {
                 "OPENAI_API_KEY": "test-key-never-sent",
                 "OPENAI_MODEL": "название_доступной_модели",
+                "OPENAI_MAX_RETRIES": "2",
+                "OPENAI_RETRY_BASE_SECONDS": "0",
             },
             clear=False,
         ):
             assert OpenAIExplainer.from_environment().model == "gpt-6-astra"
 
-        def failing_transport(
+        attempts = 0
+
+        def transient_then_success(
             payload: dict[str, Any], timeout: float
         ) -> dict[str, Any]:
-            raise OpenAIExplanationError("simulated timeout")
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                raise OpenAIAPIError("simulated rate limit", retryable=True)
+            model_input = json.loads(payload["input"])
+            return structured_response(
+                [
+                    {"sku": item["sku"], "explanation": "Проверенное пояснение."}
+                    for item in model_input["recommendations"]
+                ]
+            )
+
+        retrying = OpenAIExplainer(
+            api_key="test-key-never-sent",
+            max_retries=2,
+            retry_base_seconds=0,
+            transport=transient_then_success,
+            sleeper=lambda _: None,
+        )
+        retry_response, _ = retrying.enrich(original_response, original_details)
+        assert attempts == 3
+        assert retrying.last_report.status == "completed"
+        assert retrying.last_report.attempts == 3
+        assert retry_response != original_response
+
+        def incomplete_transport(
+            payload: dict[str, Any], timeout: float
+        ) -> dict[str, Any]:
+            return structured_response([])
 
         fallback = OpenAIExplainer(
             api_key="test-key-never-sent",
-            transport=failing_transport,
+            transport=incomplete_transport,
+            sleeper=lambda _: None,
         )
         fallback_response, fallback_details = fallback.enrich(
             original_response,
@@ -110,6 +179,8 @@ def main() -> int:
         )
         assert fallback_response == original_response
         assert fallback_details == original_details
+        assert fallback.last_report.status == "fallback"
+        assert fallback.last_report.enriched_items == 0
 
         service = WorkflowService(
             data_root=data_root,
@@ -124,7 +195,7 @@ def main() -> int:
         )
         assert item["calculation"]["reasons"][-1].startswith("AI-пояснение:")
 
-    print("OpenAI explainer offline test: OK")
+    print("OpenAI explanation funnel offline test: OK")
     return 0
 
 

@@ -1,8 +1,8 @@
-"""Optional OpenAI explanation layer for deterministic recommendations.
+"""Validated OpenAI explanation stage for deterministic recommendations.
 
-The model output is accepted only as plain explanatory text appended to
-``reasons``. It is never parsed as a quantity and cannot replace calculation
-fields produced by the deterministic orchestrator.
+The language model receives only aggregate, already calculated facts. Its
+strictly structured output can append human-readable text to ``reasons`` but
+cannot replace quantities, urgency, suppliers, or any calculation field.
 """
 
 from __future__ import annotations
@@ -10,24 +10,93 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import math
 import os
-from typing import Any, Callable
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from .openai_client import (
+    OpenAIAPIError,
+    OpenAIResponsesClient,
+    Sleeper,
+    Transport,
+)
 
 
 LOGGER = logging.getLogger(__name__)
-RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-6-astra"
-Transport = Callable[[dict[str, Any], float], dict[str, Any]]
+AI_REASON_PREFIX = "AI-пояснение: "
+MAX_EXPLANATION_CHARACTERS = 500
+CONTRACTS_DIR = Path(__file__).resolve().parents[1] / "contracts"
+
+FACT_FIELDS = (
+    "sku",
+    "name",
+    "supplier_id",
+    "supplier_name",
+    "recommended_qty",
+    "urgency",
+    "on_hand",
+    "in_transit",
+    "lead_time_days",
+    "avg_daily_demand",
+    "forecast_demand",
+    "safety_stock",
+    "seasonality_factor",
+    "growth_factor",
+    "stockout_compensation",
+    "outlier_units_removed",
+    "days_of_cover",
+)
+INTEGER_FIELDS = {
+    "recommended_qty",
+    "on_hand",
+    "in_transit",
+    "lead_time_days",
+}
+NUMBER_FIELDS = {
+    "avg_daily_demand",
+    "forecast_demand",
+    "safety_stock",
+    "seasonality_factor",
+    "growth_factor",
+    "stockout_compensation",
+    "outlier_units_removed",
+    "days_of_cover",
+}
+TEXT_FIELDS = {"sku", "name", "supplier_id", "supplier_name"}
+
+INSTRUCTIONS = """Ты объясняешь менеджеру закупок уже рассчитанные рекомендации FruktAI.
+Для каждого переданного SKU верни ровно одно краткое объяснение на русском языке.
+Объясни рекомендуемое количество через срок поставки, прогноз спроса, страховой
+запас, остаток и товар в пути. Упомяни сезонность, рост, компенсацию stockout или
+удалённый выброс только когда соответствующий фактор реально значим.
+Не пересчитывай и не меняй числа, срочность, SKU или поставщика. Не предлагай
+другое количество и не добавляй фактов, которых нет во входе. Не упоминай
+клиентов и персональные данные. Не используй Markdown. Каждое объяснение должно
+быть самостоятельным, понятным и не длиннее двух предложений.
+Верни только JSON, соответствующий переданной строгой схеме."""
 
 
-class OpenAIExplanationError(RuntimeError):
-    """Raised when an optional explanation cannot be generated or parsed."""
+class OpenAIExplanationError(OpenAIAPIError):
+    """Raised when model output cannot safely enrich recommendations."""
+
+
+@dataclass(frozen=True)
+class AIEnrichmentReport:
+    """Internal audit summary; it is not part of the public HTTP contract."""
+
+    status: str
+    model: str
+    requested_items: int
+    enriched_items: int
+    attempts: int
+    message: str
 
 
 class OpenAIExplainer:
-    """Generate bounded Russian explanations without changing calculations."""
+    """Run the complete AI input -> API -> validation -> merge funnel."""
 
     def __init__(
         self,
@@ -35,32 +104,39 @@ class OpenAIExplainer:
         model: str = DEFAULT_MODEL,
         timeout_seconds: float = 20.0,
         max_items: int = 20,
+        max_retries: int = 2,
+        retry_base_seconds: float = 0.5,
         transport: Transport | None = None,
+        sleeper: Sleeper | None = None,
     ) -> None:
-        if not api_key or not api_key.strip():
-            raise ValueError("OPENAI_API_KEY is required when explanations are enabled")
         if not model or not model.strip():
             raise ValueError("OPENAI_MODEL must be a non-empty model ID")
-        if timeout_seconds <= 0:
-            raise ValueError("OPENAI_TIMEOUT_SECONDS must be positive")
         if max_items < 0:
             raise ValueError("OPENAI_MAX_EXPLANATION_ITEMS must be non-negative")
-        self._api_key = api_key.strip()
         self.model = model.strip()
-        self.timeout_seconds = timeout_seconds
         self.max_items = max_items
-        self._transport = transport or self._request
+        client_options: dict[str, Any] = {
+            "timeout_seconds": timeout_seconds,
+            "max_retries": max_retries,
+            "retry_base_seconds": retry_base_seconds,
+            "transport": transport,
+        }
+        if sleeper is not None:
+            client_options["sleeper"] = sleeper
+        self._client = OpenAIResponsesClient(api_key, **client_options)
+        self.last_report = AIEnrichmentReport(
+            status="skipped",
+            model=self.model,
+            requested_items=0,
+            enriched_items=0,
+            attempts=0,
+            message="AI stage has not run yet",
+        )
 
     @classmethod
     def from_environment(cls) -> "OpenAIExplainer":
-        try:
-            timeout = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "20"))
-            max_items = int(os.getenv("OPENAI_MAX_EXPLANATION_ITEMS", "20"))
-        except ValueError as error:
-            raise ValueError(
-                "OPENAI_TIMEOUT_SECONDS and OPENAI_MAX_EXPLANATION_ITEMS "
-                "must be numeric"
-            ) from error
+        """Build a strictly validated explainer from backend environment."""
+
         configured_model = os.getenv("OPENAI_MODEL", "").strip()
         if configured_model.lower() in {
             "",
@@ -69,11 +145,22 @@ class OpenAIExplainer:
             "название_доступной_модели",
         }:
             configured_model = DEFAULT_MODEL
+        try:
+            timeout = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "20"))
+            max_items = int(os.getenv("OPENAI_MAX_EXPLANATION_ITEMS", "20"))
+            max_retries = int(os.getenv("OPENAI_MAX_RETRIES", "2"))
+            retry_base = float(os.getenv("OPENAI_RETRY_BASE_SECONDS", "0.5"))
+        except ValueError as error:
+            raise ValueError(
+                "OpenAI timeout, item limit, retries, and retry delay must be numeric"
+            ) from error
         return cls(
             api_key=os.getenv("OPENAI_API_KEY", ""),
             model=configured_model,
             timeout_seconds=timeout,
             max_items=max_items,
+            max_retries=max_retries,
+            retry_base_seconds=retry_base,
         )
 
     def enrich(
@@ -81,102 +168,151 @@ class OpenAIExplainer:
         response: dict[str, Any],
         item_details: dict[str, dict[str, Any]],
     ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-        """Append model text while preserving every deterministic value."""
+        """Atomically append verified explanations or return input unchanged."""
 
-        enriched_response = copy.deepcopy(response)
-        enriched_details = copy.deepcopy(item_details)
-        original_by_sku = {
-            item["sku"]: copy.deepcopy(item)
-            for item in response.get("recommendations", [])
-        }
+        original_response = copy.deepcopy(response)
+        original_details = copy.deepcopy(item_details)
+        recommendations = response.get("recommendations")
+        if not isinstance(recommendations, list):
+            return self._fallback(
+                original_response,
+                original_details,
+                requested_items=0,
+                error=OpenAIExplanationError("recommendations must be an array"),
+            )
+        selected = recommendations[: self.max_items]
+        if not selected:
+            self.last_report = AIEnrichmentReport(
+                status="skipped",
+                model=self.model,
+                requested_items=0,
+                enriched_items=0,
+                attempts=0,
+                message="No recommendations selected for AI explanation",
+            )
+            return original_response, original_details
 
-        for item in enriched_response.get("recommendations", [])[: self.max_items]:
-            try:
-                explanation = self.explain(item)
-            except OpenAIExplanationError as error:
-                # LLM text is optional. Stop further paid calls for this run and
-                # preserve the complete deterministic response.
-                LOGGER.warning("OpenAI explanation fallback: %s", error)
-                break
-            reason = f"AI-пояснение: {explanation}"
-            item["reasons"].append(reason)
-            detail = enriched_details.get(item["sku"])
-            if detail is not None:
-                detail["calculation"]["reasons"].append(reason)
+        try:
+            explanations, attempts = self._explain_many(selected)
+            enriched_response = copy.deepcopy(original_response)
+            enriched_details = copy.deepcopy(original_details)
+            for item in enriched_response["recommendations"][: len(selected)]:
+                sku = item["sku"]
+                reason = f"{AI_REASON_PREFIX}{explanations[sku]}"
+                item["reasons"].append(reason)
+                detail = enriched_details.get(sku)
+                if detail is not None:
+                    detail["calculation"]["reasons"].append(reason)
+            self._assert_protected_data_unchanged(
+                original_response,
+                enriched_response,
+                original_details,
+                enriched_details,
+            )
+        except OpenAIAPIError as error:
+            return self._fallback(
+                original_response,
+                original_details,
+                requested_items=len(selected),
+                error=error,
+            )
+        except (KeyError, TypeError, AttributeError):
+            return self._fallback(
+                original_response,
+                original_details,
+                requested_items=len(selected),
+                error=OpenAIExplanationError(
+                    "AI merge boundary rejected malformed deterministic data"
+                ),
+            )
 
-        self._assert_calculation_unchanged(original_by_sku, enriched_response)
+        self.last_report = AIEnrichmentReport(
+            status="completed",
+            model=self.model,
+            requested_items=len(selected),
+            enriched_items=len(selected),
+            attempts=attempts,
+            message="Structured AI explanations validated and merged",
+        )
+        LOGGER.info(
+            "OpenAI explanation stage completed: model=%s items=%d attempts=%d",
+            self.model,
+            len(selected),
+            attempts,
+        )
         return enriched_response, enriched_details
 
     def explain(self, recommendation: dict[str, Any]) -> str:
-        facts = {
-            "sku": recommendation["sku"],
-            "name": recommendation["name"],
-            "recommended_qty": recommendation["recommended_qty"],
-            "urgency": recommendation["urgency"],
-            "on_hand": recommendation["on_hand"],
-            "in_transit": recommendation["in_transit"],
-            "lead_time_days": recommendation["lead_time_days"],
-            "avg_daily_demand": recommendation["avg_daily_demand"],
-            "forecast_demand": recommendation["forecast_demand"],
-            "safety_stock": recommendation["safety_stock"],
-            "seasonality_factor": recommendation["seasonality_factor"],
-            "growth_factor": recommendation["growth_factor"],
-            "stockout_compensation": recommendation["stockout_compensation"],
-            "outlier_units_removed": recommendation["outlier_units_removed"],
-            "days_of_cover": recommendation["days_of_cover"],
-            "deterministic_reasons": recommendation["reasons"],
+        """Explain one item; used by the explicit connection-check script."""
+
+        explanations, _ = self._explain_many([recommendation])
+        sku = recommendation.get("sku")
+        if not isinstance(sku, str):
+            raise OpenAIExplanationError("recommendation has no valid SKU")
+        return explanations[sku]
+
+    def _explain_many(
+        self,
+        recommendations: list[dict[str, Any]],
+    ) -> tuple[dict[str, str], int]:
+        model_input = {
+            "recommendations": [self._build_facts(item) for item in recommendations]
         }
         payload = {
             "model": self.model,
-            "instructions": (
-                "Ты объясняешь уже рассчитанную рекомендацию по закупке. "
-                "Не пересчитывай, не меняй и не предлагай другое количество. "
-                "Используй только переданные факты. Верни одно понятное предложение "
-                "на русском языке без Markdown, JSON и вводных фраз, максимум 45 слов."
+            "instructions": INSTRUCTIONS,
+            "input": json.dumps(
+                model_input,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                allow_nan=False,
             ),
-            "input": json.dumps(facts, ensure_ascii=False, separators=(",", ":")),
-            "max_output_tokens": 160,
-        }
-        raw = self._transport(payload, self.timeout_seconds)
-        text = self._extract_output_text(raw)
-        normalized = " ".join(text.split())
-        if not normalized:
-            raise OpenAIExplanationError("model returned empty text")
-        # Bound untrusted external text before it reaches the API response/DB.
-        return normalized[:500]
-
-    def _request(self, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
-        request = Request(
-            RESPONSES_URL,
-            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "fruktai_explanations",
+                    "strict": True,
+                    "schema": _structured_output_schema(),
+                }
             },
-        )
+            "max_output_tokens": max(256, min(8192, len(recommendations) * 180)),
+            "store": False,
+        }
+        result = self._client.create(payload)
         try:
-            with urlopen(request, timeout=timeout) as response:
-                value = json.load(response)
-        except HTTPError as error:
+            raw_text = self._extract_output_text(result.payload)
+            parsed = self._parse_output(raw_text, model_input)
+        except OpenAIExplanationError as error:
+            error.attempts = result.attempts
+            raise
+        return parsed, result.attempts
+
+    @staticmethod
+    def _build_facts(recommendation: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(recommendation, dict):
+            raise OpenAIExplanationError("recommendation must be an object")
+        missing = [field for field in FACT_FIELDS if field not in recommendation]
+        if "reasons" not in recommendation:
+            missing.append("reasons")
+        if missing:
             raise OpenAIExplanationError(
-                f"Responses API returned HTTP {error.code}"
-            ) from error
-        except URLError as error:
-            raise OpenAIExplanationError(
-                f"Responses API is unavailable: {error.reason}"
-            ) from error
-        except (OSError, TimeoutError) as error:
-            raise OpenAIExplanationError("Responses API request timed out") from error
-        except json.JSONDecodeError as error:
-            raise OpenAIExplanationError("Responses API returned invalid JSON") from error
-        if not isinstance(value, dict):
-            raise OpenAIExplanationError("Responses API returned a non-object payload")
-        return value
+                f"recommendation is missing fields: {', '.join(missing)}"
+            )
+
+        facts = {field: recommendation[field] for field in FACT_FIELDS}
+        facts["deterministic_reasons"] = copy.deepcopy(recommendation["reasons"])
+        _validate_facts(facts)
+        return facts
 
     @staticmethod
     def _extract_output_text(response: dict[str, Any]) -> str:
+        if response.get("error"):
+            raise OpenAIExplanationError("Responses API returned an error object")
+        status = response.get("status")
+        if status not in {None, "completed"}:
+            raise OpenAIExplanationError(
+                f"Responses API did not complete (status={status})"
+            )
         direct = response.get("output_text")
         if isinstance(direct, str) and direct.strip():
             return direct
@@ -186,6 +322,8 @@ class OpenAIExplainer:
             for content in output.get("content", []):
                 if not isinstance(content, dict):
                     continue
+                if content.get("type") == "refusal":
+                    raise OpenAIExplanationError("Model refused the explanation request")
                 if content.get("type") in {"output_text", "text"}:
                     text = content.get("text")
                     if isinstance(text, str) and text.strip():
@@ -193,21 +331,157 @@ class OpenAIExplainer:
         raise OpenAIExplanationError("Responses API payload has no output text")
 
     @staticmethod
-    def _assert_calculation_unchanged(
-        original_by_sku: dict[str, dict[str, Any]],
+    def _parse_output(
+        raw_text: str,
+        model_input: dict[str, Any],
+    ) -> dict[str, str]:
+        try:
+            value = json.loads(raw_text)
+        except json.JSONDecodeError as error:
+            raise OpenAIExplanationError("Model output is not valid JSON") from error
+        if not isinstance(value, dict) or set(value) != {"explanations"}:
+            raise OpenAIExplanationError("Model output has unexpected top-level fields")
+        explanations = value["explanations"]
+        if not isinstance(explanations, list):
+            raise OpenAIExplanationError("Model explanations must be an array")
+
+        expected_skus = [
+            item["sku"] for item in model_input.get("recommendations", [])
+        ]
+        parsed: dict[str, str] = {}
+        for item in explanations:
+            if not isinstance(item, dict) or set(item) != {"sku", "explanation"}:
+                raise OpenAIExplanationError("Model explanation item has invalid fields")
+            sku = item.get("sku")
+            explanation = item.get("explanation")
+            if not isinstance(sku, str) or sku not in expected_skus:
+                raise OpenAIExplanationError("Model returned an unknown SKU")
+            if sku in parsed:
+                raise OpenAIExplanationError("Model returned a duplicate SKU")
+            if not isinstance(explanation, str):
+                raise OpenAIExplanationError("Model explanation must be text")
+            normalized = " ".join(explanation.split())
+            if not normalized:
+                raise OpenAIExplanationError("Model returned an empty explanation")
+            if len(normalized) > MAX_EXPLANATION_CHARACTERS:
+                raise OpenAIExplanationError("Model explanation exceeds the safe limit")
+            parsed[sku] = normalized
+        if set(parsed) != set(expected_skus) or len(parsed) != len(expected_skus):
+            raise OpenAIExplanationError(
+                "Model output does not contain exactly one explanation per SKU"
+            )
+        return parsed
+
+    def _fallback(
+        self,
+        response: dict[str, Any],
+        details: dict[str, dict[str, Any]],
+        *,
+        requested_items: int,
+        error: OpenAIAPIError,
+    ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+        attempts = getattr(error, "attempts", 0)
+        self.last_report = AIEnrichmentReport(
+            status="fallback",
+            model=self.model,
+            requested_items=requested_items,
+            enriched_items=0,
+            attempts=attempts,
+            message=str(error),
+        )
+        LOGGER.warning(
+            "OpenAI explanation fallback: model=%s items=%d attempts=%d reason=%s",
+            self.model,
+            requested_items,
+            attempts,
+            error,
+        )
+        return response, details
+
+    @staticmethod
+    def _assert_protected_data_unchanged(
+        original_response: dict[str, Any],
         enriched_response: dict[str, Any],
+        original_details: dict[str, dict[str, Any]],
+        enriched_details: dict[str, dict[str, Any]],
     ) -> None:
-        for item in enriched_response.get("recommendations", []):
-            original = original_by_sku.get(item.get("sku"))
-            if original is None:
-                raise OpenAIExplanationError("explanation layer added an unknown SKU")
-            for field, original_value in original.items():
-                if field == "reasons":
-                    continue
-                if item.get(field) != original_value:
+        for field, value in original_response.items():
+            if field != "recommendations" and enriched_response.get(field) != value:
+                raise OpenAIExplanationError(
+                    f"AI stage changed protected response field {field}"
+                )
+        before_items = original_response.get("recommendations", [])
+        after_items = enriched_response.get("recommendations", [])
+        if len(before_items) != len(after_items):
+            raise OpenAIExplanationError("AI stage changed recommendation count")
+        for before, after in zip(before_items, after_items):
+            for field, value in before.items():
+                if field != "reasons" and after.get(field) != value:
                     raise OpenAIExplanationError(
-                        f"explanation layer changed protected field {field}"
+                        f"AI stage changed protected field {field}"
                     )
+
+        if set(original_details) != set(enriched_details):
+            raise OpenAIExplanationError("AI stage changed item-detail SKU set")
+        for sku, before in original_details.items():
+            after = enriched_details[sku]
+            for field, value in before.items():
+                if field != "calculation" and after.get(field) != value:
+                    raise OpenAIExplanationError(
+                        f"AI stage changed protected item field {field}"
+                    )
+            before_calculation = before.get("calculation", {})
+            after_calculation = after.get("calculation", {})
+            for field, value in before_calculation.items():
+                if field != "reasons" and after_calculation.get(field) != value:
+                    raise OpenAIExplanationError(
+                        f"AI stage changed protected calculation field {field}"
+                    )
+
+
+def _validate_facts(facts: dict[str, Any]) -> None:
+    for field in TEXT_FIELDS:
+        value = facts.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise OpenAIExplanationError(f"AI input field {field} must be text")
+    if facts.get("urgency") not in {"high", "medium", "low"}:
+        raise OpenAIExplanationError("AI input urgency is invalid")
+    for field in INTEGER_FIELDS:
+        value = facts.get(field)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise OpenAIExplanationError(
+                f"AI input field {field} must be a non-negative integer"
+            )
+    for field in NUMBER_FIELDS:
+        value = facts.get(field)
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+        ):
+            raise OpenAIExplanationError(
+                f"AI input field {field} must be a finite non-negative number"
+            )
+    reasons = facts.get("deterministic_reasons")
+    if not isinstance(reasons, list) or any(
+        not isinstance(reason, str) or not reason.strip() for reason in reasons
+    ):
+        raise OpenAIExplanationError(
+            "AI input deterministic_reasons must be an array of non-empty strings"
+        )
+
+
+def _structured_output_schema() -> dict[str, Any]:
+    path = CONTRACTS_DIR / "ai-explanation.output.schema.json"
+    try:
+        contract = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise OpenAIExplanationError("AI output schema cannot be loaded") from error
+    return {
+        key: copy.deepcopy(contract[key])
+        for key in ("type", "additionalProperties", "required", "properties")
+    }
 
 
 def explanations_enabled() -> bool:
@@ -220,6 +494,8 @@ def explanations_enabled() -> bool:
 
 
 __all__ = [
+    "AIEnrichmentReport",
+    "AI_REASON_PREFIX",
     "DEFAULT_MODEL",
     "OpenAIExplainer",
     "OpenAIExplanationError",
