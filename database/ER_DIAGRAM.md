@@ -91,9 +91,22 @@ erDiagram
 ## Viewing in Visual Studio Code
 
 1. Open `database/schema.sql` to inspect all tables and constraints.
-2. Install any trusted SQLite viewer extension only if you want a graphical table browser.
-3. Create an empty local database using the extension's **Run Query** action against `schema.sql`.
-4. Inspect the `latest_recommendations` and `supplier_order_summary` views after data is loaded.
+2. Create a local database with `python scripts/database_cli.py init`.
+3. Install any trusted SQLite viewer extension only if you want a graphical table browser.
+4. Open `artifacts/fruktai.sqlite` through the extension.
+5. Inspect the `latest_recommendations` and `supplier_order_summary` views after data is loaded.
 
-The repository intentionally stores only the SQL definition, not a generated binary `.db` file or fake calculation rows.
+Useful commands:
+
+```bash
+python scripts/database_cli.py load --dataset-path data/demo
+python scripts/database_cli.py calculate --dataset-path data/demo
+python scripts/database_cli.py show recommendations
+python scripts/database_cli.py show suppliers
+python scripts/database_cli.py show steps
+python scripts/database_cli.py show tables
+python scripts/test_database.py
+```
+
+The repository intentionally stores code and the SQL definition, not a generated binary `.db` file or fake calculation rows. The local database is produced from validated CSV files and real workflow output.
 

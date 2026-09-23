@@ -44,6 +44,7 @@ The calculation workflow uses only the Python standard library. From the reposit
 ```bash
 python scripts/validate_api_contracts.py
 python scripts/test_agent_workflow.py
+python scripts/test_database.py
 ```
 
 The test creates an isolated temporary dataset, executes all seven workflow steps, verifies outlier and stockout handling, checks negative-inventory validation, persists a run, and confirms that increasing `on_hand` lowers the recommendation.
@@ -63,3 +64,15 @@ This checks `/health`, both required API resources, response fields, workflow or
 Until `backend/` and `frontend/` are merged, use each owner's documented development command. The Tech Lead will add or validate `docker-compose.yml` only after both real Dockerfiles exist; the repository will not claim a non-runnable Compose setup.
 
 Integration rules and the exact owner handoff are in [docs/INTEGRATION.md](docs/INTEGRATION.md).
+
+## Optional SQLite inspection
+
+CSV remains the MVP source of truth. To create a local SQLite database that can be opened in Visual Studio Code:
+
+```bash
+python scripts/database_cli.py init
+python scripts/database_cli.py calculate --dataset-path data/demo
+python scripts/database_cli.py show recommendations
+```
+
+The generated file is `artifacts/fruktai.sqlite`. Database structure and viewing instructions are in [database/ER_DIAGRAM.md](database/ER_DIAGRAM.md).

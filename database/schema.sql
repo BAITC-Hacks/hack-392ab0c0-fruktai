@@ -166,19 +166,24 @@ CREATE TABLE IF NOT EXISTS item_history (
         ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
+-- Recreate views so running init also applies compatible view migrations.
+DROP VIEW IF EXISTS supplier_order_summary;
+DROP VIEW IF EXISTS latest_recommendations;
+
 -- Convenient views for VS Code SQLite viewers and manual demo inspection.
-CREATE VIEW IF NOT EXISTS latest_recommendations AS
+CREATE VIEW latest_recommendations AS
 SELECT r.*
 FROM recommendations AS r
 JOIN (
     SELECT run_id
     FROM calculation_runs
     WHERE status = 'completed'
-    ORDER BY generated_at DESC
+    -- rowid is the deterministic tie-breaker when the OS clock has coarse precision.
+    ORDER BY generated_at DESC, rowid DESC
     LIMIT 1
 ) AS latest ON latest.run_id = r.run_id;
 
-CREATE VIEW IF NOT EXISTS supplier_order_summary AS
+CREATE VIEW supplier_order_summary AS
 SELECT
     supplier_id,
     supplier_name,
@@ -189,4 +194,3 @@ FROM latest_recommendations
 GROUP BY supplier_id, supplier_name;
 
 COMMIT;
-
