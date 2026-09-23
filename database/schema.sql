@@ -6,6 +6,14 @@ PRAGMA foreign_keys = ON;
 
 BEGIN TRANSACTION;
 
+-- Immutable, normalized imported sources for audit (includes optional input fields).
+CREATE TABLE IF NOT EXISTS source_imports (
+    dataset TEXT PRIMARY KEY,
+    imported_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    metadata_json TEXT NOT NULL,
+    tables_json TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS suppliers (
     supplier_id       TEXT PRIMARY KEY,
     supplier_name     TEXT NOT NULL CHECK (length(trim(supplier_name)) > 0),

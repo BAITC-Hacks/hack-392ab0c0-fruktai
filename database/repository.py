@@ -323,7 +323,7 @@ def latest_agent_steps(database_path: str | Path) -> list[dict[str, Any]]:
 
 
 def latest_item_detail(
-    database_path: str | Path, sku: str
+    database_path: str | Path, sku: str, run_id: str | None = None
 ) -> dict[str, Any]:
     """Return the latest persisted item response in API-contract form."""
 
@@ -335,10 +335,11 @@ def latest_item_detail(
         FROM recommendations AS r
         JOIN calculation_runs AS c ON c.run_id = r.run_id
         WHERE r.sku = ? AND c.status = 'completed'
+          AND (? IS NULL OR r.run_id = ?)
         ORDER BY c.generated_at DESC, c.rowid DESC
         LIMIT 1
         """,
-        (sku_value,),
+        (sku_value, run_id, run_id),
     )
     if not rows:
         raise RecordNotFoundError(f"No calculated item found for SKU {sku_value}")

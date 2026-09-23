@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import re
 from pathlib import Path
 from threading import Lock
@@ -88,6 +89,17 @@ class WorkflowService:
             )
             response = execution.response
             item_details = execution.item_details
+            manifest = dataset_path / "manifest.json"
+            if manifest.is_file():
+                metadata = json.loads(manifest.read_text(encoding="utf-8"))
+                warnings = metadata.get("warnings", [])
+                for item in response["recommendations"]:
+                    reasons = ["Качество входных данных: " + warning for warning in warnings]
+                    item["reasons"].extend(reasons)
+                    # The orchestrator may share its reasons list with details.
+                    detail_reasons = item_details[item["sku"]]["calculation"]["reasons"]
+                    if detail_reasons is not item["reasons"]:
+                        detail_reasons.extend(reasons)
             # Domain validation must happen before storage so invalid CSV data
             # becomes HTTP 422, while actual database failures remain HTTP 500.
             load_csv_dataset(self.database_path, dataset_path)
@@ -105,10 +117,10 @@ class WorkflowService:
             )
             return response
 
-    def get_item(self, sku: str) -> dict[str, Any]:
+    def get_item(self, sku: str, run_id: str | None = None) -> dict[str, Any]:
         """Return latest persisted drill-down data for ``GET /items/{sku}``."""
 
-        return latest_item_detail(self.database_path, sku)
+        return latest_item_detail(self.database_path, sku, run_id)
 
     def _resolve_dataset(self, dataset: str) -> Path:
         if not isinstance(dataset, str) or DATASET_NAME.fullmatch(dataset) is None:
@@ -116,6 +128,8 @@ class WorkflowService:
                 "dataset may contain only Latin letters, digits, '_' and '-'"
             )
         root = self.data_root.resolve()
+        if dataset.startswith("upload_"):
+            root = self.database_path.parent.resolve() / "imports"
         candidate = (root / dataset).resolve()
         if not candidate.is_relative_to(root):
             raise DataValidationError("dataset path escapes the configured data root")

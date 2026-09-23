@@ -10,7 +10,7 @@ import csv
 import json
 import math
 import os
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -52,6 +52,9 @@ class WorkflowState:
     in_transit: dict[str, int] = field(default_factory=dict)
     in_transit_present: set[str] = field(default_factory=set)
     daily_sales: dict[str, dict[date, float]] = field(default_factory=dict)
+    regular_daily_sales: dict[str, dict[date, float]] = field(default_factory=dict)
+    client_outlier_dates: dict[str, set[date]] = field(default_factory=dict)
+    removed_by_day: dict[str, dict[date, float]] = field(default_factory=dict)
     stockout_dates: dict[str, set[date]] = field(default_factory=dict)
     outlier_dates: dict[str, set[date]] = field(default_factory=dict)
     metrics: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -237,10 +240,7 @@ class ReplenishmentOrchestrator:
                 raise DataValidationError(
                     f"stockouts.csv row {index} end_date is before start_date"
                 )
-            current = start
-            while current <= end:
-                stockouts[sku].add(current)
-                current += timedelta(days=1)
+            stockouts[sku].update(self._date_range(start, end))
         state.stockout_dates = dict(stockouts)
 
         self._apply_overrides(state, overrides)
@@ -248,19 +248,49 @@ class ReplenishmentOrchestrator:
 
     def detect_outliers(self, state: WorkflowState) -> str:
         state.outlier_dates = {}
+        # Inspect per-client/day totals before daily aggregation hides a one-off
+        # order among normal sales. Client IDs stay inside this deterministic step.
+        grouped = defaultdict(lambda: defaultdict(float))
+        for row in state.raw["sales"]:
+            if row.get("customer_id"):
+                key = (date.fromisoformat(row["date"]), row["customer_id"])
+                grouped[row["sku"]][key] += float(row["units"])
         count = 0
         for sku, daily in state.daily_sales.items():
-            values = sorted(daily.values())
+            cleaned = dict(daily)
+            removed = defaultdict(float)
+            client_days = set()
+            transactions = grouped[sku]
+            if len(transactions) >= 8:
+                amounts = sorted(transactions.values())
+                q1, q3 = self._percentile(amounts, 0.25), self._percentile(amounts, 0.75)
+                limit = max(q3 + 3 * (q3 - q1), self._percentile(amounts, 0.5) * 5)
+                candidates = [(day, client) for (day, client), amount in transactions.items() if amount > limit]
+                candidate_counts = Counter(client for _, client in candidates)
+                for day, client in candidates:
+                    if candidate_counts[client] == 1:
+                        quantity = transactions[(day, client)]
+                        cleaned[day] = max(0, cleaned[day] - quantity)
+                        removed[day] += quantity
+                        client_days.add(day)
+            state.regular_daily_sales[sku] = cleaned
+            state.client_outlier_dates[sku] = client_days
+            values = sorted(cleaned.values())
             if len(values) < 4:
                 state.outlier_dates[sku] = set()
+                state.removed_by_day[sku] = dict(removed)
+                count += len(client_days)
                 continue
             q1 = self._percentile(values, 0.25)
             q3 = self._percentile(values, 0.75)
             iqr = q3 - q1
-            threshold = q3 + 1.5 * iqr
-            flagged = {day for day, units in daily.items() if iqr > 0 and units > threshold}
+            threshold = q3 + 1.5 * iqr if iqr > 0 else q3 * 3
+            flagged = {day for day, units in cleaned.items() if q3 > 0 and units > threshold}
             state.outlier_dates[sku] = flagged
-            count += len(flagged)
+            for day in flagged:
+                removed[day] += cleaned[day]
+            state.removed_by_day[sku] = dict(removed)
+            count += len(flagged | client_days)
         state.anomaly_count = count
         return f"Marked {count} daily sales observations as outliers"
 
@@ -269,12 +299,13 @@ class ReplenishmentOrchestrator:
         for sku, product in state.products.items():
             if not product["active"]:
                 continue
-            daily = state.daily_sales.get(sku, {})
+            daily = state.regular_daily_sales.get(sku, state.daily_sales.get(sku, {}))
             if not daily:
                 state.metrics[sku] = self._zero_metrics()
                 continue
-            last_day = max(daily)
-            first_day = max(min(daily), last_day - timedelta(days=27))
+            observed = set(daily) | state.stockout_dates.get(sku, set())
+            last_day = max(observed)
+            first_day = max(min(observed), last_day - timedelta(days=27))
             calendar_days = (last_day - first_day).days + 1
             window = self._date_range(first_day, last_day)
             outliers = state.outlier_dates.get(sku, set())
@@ -321,7 +352,7 @@ class ReplenishmentOrchestrator:
                     if previous_mean > 0:
                         growth = self._clamp(recent_mean / previous_mean, 1.0, 1.30)
 
-            outlier_units = sum(daily.get(day, 0.0) for day in outliers if day in window)
+            outlier_units = sum(units for day, units in state.removed_by_day.get(sku, {}).items() if day in window)
             state.metrics[sku] = {
                 "calendar_days": float(calendar_days),
                 "avg_daily_demand": (valid_units + compensation) / calendar_days,
@@ -531,7 +562,7 @@ class ReplenishmentOrchestrator:
                 {
                     "date": day.isoformat(),
                     "units": self._round(daily.get(day, 0.0)),
-                    "is_outlier": day in outliers,
+                    "is_outlier": day in outliers or day in state.client_outlier_dates.get(sku, set()),
                     "is_stockout": day in stockouts,
                     "estimated_lost_units": self._round(
                         baseline if day in stockouts else 0.0
