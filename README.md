@@ -29,6 +29,7 @@ An LLM never determines this value.
 ```text
 agent/       deterministic workflow and backend API client
 contracts/   machine-readable wire contracts
+database/    optional SQLite schema and ER diagram for inspection
 docs/        API, data, and integration documentation
 scripts/     workflow regression and HTTP smoke tests
 backend/     FastAPI service (backend owner)
