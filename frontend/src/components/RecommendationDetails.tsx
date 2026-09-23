@@ -22,7 +22,7 @@ export function RecommendationDetails({ product: p, draft, onDraft, selected, on
   }
   return <>
     <div className="product-detail-heading"><ProductArt kind={p.kind}/><div><p className="eyebrow">{p.category}</p><h2 id="drawer-title">{p.name}</h2><p className="muted">{p.sku} · {p.supplier}</p></div></div>
-    <div className="detail-status"><StatusBadge status={p.status}/><span className="mini-tag">Пример рекомендации</span></div>
+    <div className="detail-status"><StatusBadge status={p.status}/></div>
     <div className="recommendation-result"><div><span>Рекомендовано заказать</span><strong>{formatNumber(p.recommended)} <small>{p.unit}</small></strong></div><p>{shortReason(p)}</p></div>
     <p className="detail-copy">{p.explanation}</p>
     <section className="detail-section"><h3>Из чего складывается заказ</h3><div className="formula-label">max(0, прогноз + запас − остаток − в пути)</div>
