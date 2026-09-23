@@ -197,6 +197,11 @@ New routes are shared by the frontend and the 1C file-exchange adapter:
   without run_id is retained for compatibility.
 
 Import metadata schema: `contracts/import.response.schema.json`.
+The import route also accepts the LOGISTIQ XLSX layout documented in
+[INPUT_OUTPUT.md](INPUT_OUTPUT.md#logistiq-xlsx). It normalizes raw observations
+and the current snapshot into the existing six tables; response fields and
+the calculation formula are unchanged. Import warnings disclose ignored
+reference results and unsupported planning parameters.
 The import response contains normalized previews (up to 5 rows per table) without
 customer identifiers. `products` contains sku, name, category and unit when supplied.
 The returned dataset is accepted by the existing recalculate request.

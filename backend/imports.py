@@ -47,10 +47,11 @@ def import_dataset(
     if sum(len(content) for _, content in files) > MAX_TOTAL:
         raise ImportProblem("Общий размер файлов превышает 30 MiB", 413)
     tables = {}
+    warnings = []
     for name, content in files:
         if not content or len(content) > MAX_FILE:
             raise ImportProblem("Пустой файл или размер больше 10 MiB", 413)
-        for key, rows in parse_file(name, content).items():
+        for key, rows in parse_file(name, content, warnings=warnings).items():
             if key in tables:
                 raise ImportProblem(f"Таблица {key} загружена несколько раз")
             tables[key] = rows
@@ -70,7 +71,6 @@ def import_dataset(
     if expanded_days > 100_000:
         raise ImportProblem("Stockout-периоды превышают лимит 100000 дней суммарно", 413)
     warehouse = select_warehouse(tables, warehouse_id.strip())
-    warnings = []
     if "material_statement" in tables:
 
         def balances(rows):

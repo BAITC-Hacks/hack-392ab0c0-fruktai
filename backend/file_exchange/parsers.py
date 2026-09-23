@@ -8,7 +8,7 @@ from pathlib import Path
 from .normalization import ImportProblem, MAX_ROWS, REQUIRED, table_name, normalize
 
 
-def parse_file(filename, content):
+def parse_file(filename, content, *, warnings=None):
     """Return normalized tables. Every sheet/row is validated, never skipped silently."""
     suffix = Path(filename).suffix.lower()
     tables = {}
@@ -53,17 +53,12 @@ def parse_file(filename, content):
                     raise ImportProblem("Распакованная книга слишком велика", 413)
             workbook = load_workbook(BytesIO(content), read_only=True, data_only=False)
             try:
+                if "Upload Data" in workbook.sheetnames:
+                    from .logistiq import parse_logistiq
+
+                    return parse_logistiq(workbook, read_excel_sheet, warnings)
                 for sheet in workbook:
-                    if sheet.max_row > MAX_ROWS + 1 or sheet.max_column > 32:
-                        raise ImportProblem("Слишком большой лист Excel", 413)
-                    matrix = []
-                    for row in sheet.iter_rows():
-                        if any(c.data_type in {"f", "e"} for c in row):
-                            raise ImportProblem(
-                                f"{sheet.title}: замените формулы/ошибки значениями"
-                            )
-                        matrix.append([c.value for c in row])
-                    add(sheet.title, matrix)
+                    add(sheet.title, read_excel_sheet(sheet))
             finally:
                 workbook.close()
         elif suffix == ".xls":
@@ -118,3 +113,17 @@ def parse_file(filename, content):
             f"Не удалось прочитать {suffix} файл: проверьте формат, пароль и структуру таблицы"
         ) from error
     return tables
+
+
+def read_excel_sheet(sheet):
+    """Enforce limits while streaming, including XLSX without dimension metadata."""
+    if (sheet.max_row or 0) > MAX_ROWS + 3 or (sheet.max_column or 0) > 32:
+        raise ImportProblem("Слишком большой лист Excel", 413)
+    matrix = []
+    for row in sheet.iter_rows():
+        if len(matrix) >= MAX_ROWS + 3 or len(row) > 32:
+            raise ImportProblem("Слишком большой лист Excel", 413)
+        if any(c.data_type in {"f", "e"} for c in row):
+            raise ImportProblem(f"{sheet.title}: замените формулы/ошибки значениями")
+        matrix.append([c.value for c in row])
+    return matrix

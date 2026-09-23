@@ -7,6 +7,7 @@ import { AgentRunPanel } from '../AgentRunPanel';
 import { DataView } from '../DataView';
 import { LoadingState } from '../LoadingState';
 import { ProcurementQueue } from './ProcurementQueue';
+import { initialFilters } from '../../utils/presentation';
 
 export function WorkspaceViews({ workspace }: { workspace: WorkspaceController }) {
   const {
@@ -15,10 +16,8 @@ export function WorkspaceViews({ workspace }: { workspace: WorkspaceController }
     highRisk,
     chooseKpi,
     products,
-    filtered,
     navigate,
     setFilters,
-    filters,
     agentOpen,
     setAgentOpen,
     loading,
@@ -54,13 +53,13 @@ export function WorkspaceViews({ workspace }: { workspace: WorkspaceController }
           {view === 'overview' ? (
             <div className="overview-grid">
               <Analytics
-                products={filtered}
+                products={products}
                 onStatus={(status) => {
                   navigate('table');
-                  setFilters({ ...filters, status });
+                  setFilters({ ...initialFilters, status });
                 }}
               />
-              <Comparison products={filtered} />
+              <Comparison products={products} />
             </div>
           ) : (
             <ProcurementQueue workspace={workspace} />
@@ -99,12 +98,21 @@ export function WorkspaceViews({ workspace }: { workspace: WorkspaceController }
           <AgentRunPanel
             steps={data.response.agent_steps}
             runId={data.response.run_id}
-            open
-            onChange={() => {}}
+            open={agentOpen}
+            onChange={setAgentOpen}
           />
           <p className="helper">
             Журнал показывает завершённый запуск, а не трансляцию этапов в реальном времени.
           </p>
+        </section>
+      )}
+      {!loading && !data && view !== 'data' && (
+        <section className="empty-state">
+          <h2>Для этого раздела нужен расчёт</h2>
+          <p>Загрузите исходные данные или повторите запрос к API.</p>
+          <button className="secondary-button" onClick={() => navigate('data')}>
+            Открыть источники данных
+          </button>
         </section>
       )}
       {dataset !== 'demo' && (

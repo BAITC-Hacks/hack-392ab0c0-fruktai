@@ -43,7 +43,7 @@ export function Drawer({ title, children, onClose, wide = false }: Props) {
       }}
     >
       <header className="drawer-header">
-        <span>{title}</span>
+        <span id="drawer-title">{title}</span>
         <button className="icon-button" onClick={onClose} aria-label="Закрыть панель" autoFocus>
           <X size={20} />
         </button>

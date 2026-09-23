@@ -52,7 +52,7 @@ export function WorkspaceShell({
       <a className="skip-link" href="#main-content">
         Перейти к рекомендациям
       </a>
-      {mobileNav && (
+      {compactNav && mobileNav && (
         <button
           className="nav-scrim"
           aria-label="Закрыть навигацию"
@@ -147,9 +147,15 @@ export function WorkspaceShell({
                     ? 'Расчёт получен'
                     : 'Нет данных'}
             </span>
-            <span className="avatar" title="Рабочее место менеджера, без авторизации">
+            <button
+              className="avatar"
+              title="Профиль рабочего места"
+              aria-label="Открыть профиль"
+              aria-haspopup="dialog"
+              onClick={() => workspace.setProfileOpen(true)}
+            >
               МЗ
-            </span>
+            </button>
           </div>
         </header>
 

@@ -185,3 +185,18 @@
   line-height: 1.65;
   margin-top: 6px;
 }
+.profile-panel {
+  display: grid;
+  gap: 16px;
+}
+.profile-panel dl {
+  display: grid;
+  gap: 8px;
+}
+.profile-panel dt {
+  color: var(--text-secondary);
+}
+.profile-panel dd {
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}

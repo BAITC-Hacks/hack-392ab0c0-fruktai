@@ -10,6 +10,12 @@ async function request(path: string, options?: RequestInit): Promise<unknown> {
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       const detail = typeof body.detail === 'string' ? body.detail : 'Проверьте входные данные.';
+      if (response.status === 404 && path === '/api/v1/datasets/import')
+        throw new Error(
+          'API загрузки файлов не найден. Возможно, запущен старый backend. ' +
+            'Остановите локальный сервер (Ctrl+C) и запустите scripts/run_local.py заново. ' +
+            'Если ошибка повторяется, проверьте адрес API и прокси.',
+        );
       throw new Error('API ' + response.status + ': ' + detail);
     }
     return await response.json();

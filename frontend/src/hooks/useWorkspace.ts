@@ -43,6 +43,7 @@ export function useWorkspace() {
   const [reviewProducts, setReviewProducts] = useState<DemoProduct[] | null>(null);
   const [drafts, setDrafts] = useState<Record<string, ScenarioDraft>>({});
   const [agentOpen, setAgentOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const requestNumber = useRef(0);
   const appliedOverrides = useRef<Override[]>([]);
 
@@ -117,7 +118,7 @@ export function useWorkspace() {
     });
   }
   function chooseKpi(type: 'orders' | 'risk' | 'anomaly' | 'stockout') {
-    setView('table');
+    navigate('table');
     setFilters({
       ...initialFilters,
       onlyOrders: type === 'orders',
@@ -129,6 +130,10 @@ export function useWorkspace() {
     setView(next);
     setGrouped(bySupplier);
     setMobileNav(false);
+    setProfileOpen(false);
+    setFilters(initialFilters);
+    if (next === 'activity') setAgentOpen(true);
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }
   function openReview() {
     const rows = selectedProducts.length ? selectedProducts : filtered;
@@ -175,6 +180,8 @@ export function useWorkspace() {
     reviewProducts,
     drafts,
     agentOpen,
+    profileOpen,
+    setProfileOpen,
     products,
     filtered,
     selectedProducts,

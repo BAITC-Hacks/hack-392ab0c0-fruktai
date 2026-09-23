@@ -22,6 +22,42 @@ export function WorkspaceDialogs({ workspace }: { workspace: WorkspaceController
   return (
     <>
       {' '}
+      {workspace.profileOpen && (
+        <Drawer title="Профиль рабочего места" onClose={() => workspace.setProfileOpen(false)}>
+          <section className="profile-panel">
+            <h2>Менеджер закупок</h2>
+            <p className="helper">
+              Локальное рабочее место. Авторизация и личные аккаунты в MVP не подключены.
+            </p>
+            <dl>
+              <dt>Набор данных</dt>
+              <dd>{workspace.dataset}</dd>
+              <dt>Склад</dt>
+              <dd>{data?.metadata?.warehouse_id || 'Не указан'}</dd>
+              <dt>Последний расчёт</dt>
+              <dd>{data?.response.run_id || 'Ещё не выполнен'}</dd>
+            </dl>
+            <button
+              className="secondary-button full-width"
+              onClick={() => workspace.navigate('data')}
+            >
+              Открыть источники данных
+            </button>
+            <button
+              className="secondary-button full-width"
+              onClick={() => workspace.navigate('activity')}
+            >
+              Открыть ход анализа
+            </button>
+            <button
+              className="primary-button full-width"
+              onClick={() => workspace.navigate('table')}
+            >
+              Перейти к рекомендациям
+            </button>
+          </section>
+        </Drawer>
+      )}
       {activeProduct && (
         <Drawer title="Объяснение рекомендации" onClose={() => setActiveProduct(null)}>
           <RecommendationDetails
