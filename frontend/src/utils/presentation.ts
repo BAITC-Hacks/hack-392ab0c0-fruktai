@@ -15,7 +15,7 @@ export function quantitySummary(products: DemoProduct[]): string {
   for (const product of products) {
     totals.set(product.unit, (totals.get(product.unit) ?? 0) + product.recommended);
   }
-  return [...totals].map(([unit, value]) => `${formatNumber(value)} ${unit}`).join(' · ') || '0 ед.';
+  return [...totals].sort(([a], [b]) => a.localeCompare(b, 'ru')).map(([unit, value]) => `${formatNumber(value)} ${unit}`).join(' · ') || '0 ед.';
 }
 
 export function shortReason(product: DemoProduct): string {
@@ -67,3 +67,11 @@ export function filterProducts(products: DemoProduct[], filters: Filters): DemoP
     return statusRank[a.status] - statusRank[b.status] || Number(b.onHand === 0) - Number(a.onHand === 0);
   });
 }
+
+function plural(value: number, one: string, few: string, many: string): string {
+  const mod100 = Math.abs(value) % 100;
+  const mod10 = mod100 % 10;
+  return mod100 >= 11 && mod100 <= 14 ? many : mod10 === 1 ? one : mod10 >= 2 && mod10 <= 4 ? few : many;
+}
+export const positionWord = (value: number): string => plural(value, 'позиция', 'позиции', 'позиций');
+export const supplierWord = (value: number): string => plural(value, 'поставщик', 'поставщика', 'поставщиков');
