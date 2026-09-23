@@ -312,6 +312,12 @@ def main() -> int:
     )
 
     recommendation_schema = schemas["recommendation.schema.json"]
+    # The single frontend fixture is a real calculated response, not a second
+    # presentation-only contract.
+    fixture_path = REPOSITORY_ROOT / "frontend/src/mocks/demo.json"
+    if fixture_path.is_file():
+        validate(json.loads(fixture_path.read_text(encoding="utf-8")),
+                 recommendation_schema, recommendation_schema)
     with tempfile.TemporaryDirectory(prefix="fruktai-contract-") as temp:
         root = Path(temp)
         dataset = root / "demo"

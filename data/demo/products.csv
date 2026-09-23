@@ -1,0 +1,7 @@
+sku,name,supplier_id,active
+STABLE-001,Кабель силовой,ALPHA,true
+SEASON-001,Светильник светодиодный,BETA,true
+GROW-001,Автоматический выключатель,ALPHA,true
+STOCKOUT-001,Розетка накладная,GAMMA,true
+BULK-001,Щит распределительный,GAMMA,true
+TRANSIT-001,Клемма соединительная,DELTA,true

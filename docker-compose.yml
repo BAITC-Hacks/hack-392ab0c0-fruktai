@@ -1,0 +1,35 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      FRUKTAI_DATA_ROOT: /app/data
+      FRUKTAI_DATABASE_PATH: /app/artifacts/fruktai.sqlite
+      FRUKTAI_RUNS_DIR: /app/artifacts/runs
+      FRUKTAI_SAFETY_STOCK_DAYS: ${FRUKTAI_SAFETY_STOCK_DAYS:-7}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-astra}
+      OPENAI_EXPLANATIONS_ENABLED: ${OPENAI_EXPLANATIONS_ENABLED:-false}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-20}
+      OPENAI_MAX_EXPLANATION_ITEMS: ${OPENAI_MAX_EXPLANATION_ITEMS:-20}
+      OPENAI_MAX_RETRIES: ${OPENAI_MAX_RETRIES:-2}
+      OPENAI_RETRY_BASE_SECONDS: ${OPENAI_RETRY_BASE_SECONDS:-0.5}
+    volumes:
+      - ./artifacts:/app/artifacts
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy

@@ -1,91 +1,197 @@
-# FruktAI
+# FruktAI — интегрированный предфинальный MVP
 
-FruktAI is a HackAlem AI hackathon MVP that creates transparent supplier-order recommendations from sales, inventory, inbound-stock, stockout, product, and supplier CSV files.
+Ветка `test-main` объединяет frontend команды, FastAPI, вашу AI-логику и SQLite.
+Пользователь открывает таблицу рекомендаций, видит причины и историю продаж,
+изменяет остаток / товар в пути, получает пересчёт и экспортирует CSV после проверки.
 
-The order quantity is deterministic:
-
-```text
-recommended_qty = max(
-  0,
-  forecast_demand_during_lead_time
-  + safety_stock
-  - on_hand
-  - in_transit
-)
-```
-
-An LLM never determines this value.
-
-## Source of truth
-
-- [MVP scope and algorithm](MVP_SPEC.md)
-- [HTTP API contract](docs/API_CONTRACT.md)
-- [CSV data contract](docs/DATA_CONTRACT.md)
-- [Team integration handoff](docs/INTEGRATION.md)
-- [Backend + SQLite integration guide](docs/BACKEND_DATABASE_INTEGRATION.md)
-- [Optional OpenAI explanation layer](docs/OPENAI_INTEGRATION.md)
-- [AI input/output contract and full funnel](docs/AI_API_CONTRACT.md)
-- [Response JSON Schema](contracts/recommendation.schema.json)
-
-## Repository layout
+Число заказа рассчитывает алгоритм:
 
 ```text
-agent/       deterministic workflow and backend API client
-contracts/   machine-readable wire contracts
-database/    optional SQLite schema and ER diagram for inspection
-docs/        API, data, and integration documentation
-scripts/     workflow regression and HTTP smoke tests
-backend/     FastAPI service (backend owner)
-frontend/    React dashboard (frontend owner)
-data/demo/   six contract-compliant demo CSV files (data/backend owner)
+ceil(max(0, forecast_demand + safety_stock - on_hand - in_transit))
 ```
 
-## Available now
+OpenAI может добавить пояснение. Ошибка OpenAI не отменяет расчёт.
+Все экранные рекомендации загружаются из API. Файл mock используется только тестами.
 
-The calculation workflow uses only the Python standard library. From the repository root:
+## Быстрый запуск на Windows
 
-```bash
-python scripts/validate_api_contracts.py
-python scripts/test_agent_workflow.py
-python scripts/test_database.py
-python scripts/test_workflow_service.py
-python scripts/test_openai_explainer.py
+Нужны Python 3.10+ и Node.js 22+. Команды выполнять из корня репозитория:
+
+```powershell
+git fetch origin
+git switch test-main
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
+npm --prefix frontend ci
+.\.venv\Scripts\python.exe scripts/run_local.py
 ```
 
-The test creates an isolated temporary dataset, executes all seven workflow steps, verifies outlier and stockout handling, checks negative-inventory validation, persists a run, and confirms that increasing `on_hand` lowers the recommendation.
+Оставьте терминал открытым. Остановка обоих серверов — Ctrl+C.
 
-## Integrated API check
+- Интерфейс: http://127.0.0.1:5173
+- Swagger: http://127.0.0.1:8000/docs
+- Health: http://127.0.0.1:8000/health
 
-After the backend owner starts the FastAPI service on port `8000`:
+`run_local.py` запускает оба процесса и по умолчанию **отключает платные AI-вызовы**.
+Существующий `.env` перезаписывать не нужно. SQLite создаётся автоматически.
 
-```bash
-python scripts/smoke_test.py --base-url http://localhost:8000
+Для macOS/Linux: вместо `.\.venv\Scripts\python.exe` используйте `.venv/bin/python`.
+
+## Запуск с OpenAI
+
+Ключ должен быть только в корневом `.env`:
+
+```env
+OPENAI_API_KEY=ваш_ключ
+OPENAI_MODEL=gpt-6-astra
+OPENAI_EXPLANATIONS_ENABLED=true
 ```
 
-This checks `/health`, both required API resources, response fields, workflow order, and a real recalculation with an inventory override. It does not return mock success results when the backend is unavailable.
+После остановки обычного запуска:
 
-## Full application startup
-
-Until `backend/` and `frontend/` are merged, use each owner's documented development command. The Tech Lead will add or validate `docker-compose.yml` only after both real Dockerfiles exist; the repository will not claim a non-runnable Compose setup.
-
-Integration rules and the exact owner handoff are in [docs/INTEGRATION.md](docs/INTEGRATION.md).
-
-## Optional SQLite inspection
-
-CSV remains the MVP source of truth. To create a local SQLite database that can be opened in Visual Studio Code:
-
-```bash
-python scripts/database_cli.py init
-python scripts/database_cli.py calculate --dataset-path data/demo
-python scripts/database_cli.py show recommendations
+```powershell
+.\.venv\Scripts\python.exe scripts/run_local.py --ai
 ```
 
-The generated file is `artifacts/fruktai.sqlite`. Database structure and viewing instructions are in [database/ER_DIAGRAM.md](database/ER_DIAGRAM.md).
+Один пересчёт вызывает одну пакетную AI-операцию с ограниченными повторами.
+При отказе провайдера сохраняются детерминированные причины; подробности видны
+в серверном логе. Наличие ответа HTTP 200 само по себе не доказывает работу LLM.
+Успешное AI-пояснение начинается с `AI-пояснение:`.
 
-## Optional OpenAI explanations
+Полный live-тест AI → HTTP → SQLite на временной БД (один платный пакетный
+запрос по учебным данным): `python scripts/test_ai_integration.py`.
+Тест требует корневой `.env` с ключом и явно завершается ошибкой при fallback.
 
-OpenAI may add a short natural-language element to `reasons` after calculation. One batched, strictly structured request covers the selected SKUs; exact-SKU validation and protected-field checks prevent the model from changing `recommended_qty` or any other calculation field. The complete data funnel is documented in [docs/AI_API_CONTRACT.md](docs/AI_API_CONTRACT.md), and runtime configuration is in [docs/OPENAI_INTEGRATION.md](docs/OPENAI_INTEGRATION.md).
+Настройки лимитов и fallback: [OpenAI integration](docs/OPENAI_INTEGRATION.md).
+Описание входа и выхода: [AI contract](docs/AI_API_CONTRACT.md).
 
-## Backend handoff
+## Полный автоматический прогон
 
-The current backend branch uses a different upload-based API and calculation model. Before merging it with this branch, follow [docs/BACKEND_DATABASE_INTEGRATION.md](docs/BACKEND_DATABASE_INTEGRATION.md). The guide contains the exact Pydantic models, FastAPI routes, environment variables, six-file data migration, SQLite commands, error mapping, tests, and merge checklist.
+В отдельном терминале из корня:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests -q
+.\.venv\Scripts\python.exe scripts/test_full_stack.py
+.\.venv\Scripts\python.exe scripts/validate_api_contracts.py
+.\.venv\Scripts\python.exe scripts/test_agent_workflow.py
+.\.venv\Scripts\python.exe scripts/test_database.py
+.\.venv\Scripts\python.exe scripts/test_workflow_service.py
+.\.venv\Scripts\python.exe scripts/test_openai_explainer.py
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
+`test_full_stack.py` сам запускает настоящий HTTP-сервер на свободном порту,
+выполняет health → расчёт → изменение остатка → историю товара, затем перезапускает
+сервер и проверяет сохранность результата в SQLite. Использует временную БД,
+не меняет рабочую БД и не вызывает OpenAI.
+
+Для проверки уже запущенного приложения, включая Vite-прокси:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/smoke_test.py --base-url http://127.0.0.1:5173
+```
+
+Smoke-test создаёт два настоящих расчёта в рабочей БД; последний содержит override.
+Нажмите «Обновить данные» в UI, чтобы вернуться к исходным CSV.
+
+Браузерный прогон при работающем `run_local.py`:
+
+```powershell
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+cd ..
+```
+
+Проверяет таблицу, открытие товара и графика, пересчёт, чтение из API/БД и
+скачивание CSV. Для установленного Chrome можно задать
+`$env:PLAYWRIGHT_CHANNEL = "chrome"` и пропустить загрузку Chromium.
+
+## Демонстрация за две минуты
+
+1. Откройте http://127.0.0.1:5173 — загрузятся 6 SKU.
+2. Включите «По поставщикам», откройте любой товар с ненулевым заказом.
+3. Посмотрите формулу, причины и график истории.
+4. Введите остаток `10000`, нажмите «Пересчитать через API».
+   Рекомендация станет нулевой, отобразятся значения до / после.
+5. Закройте карточку. Во вкладке «Данные» раскройте «Ход анализа»:
+   там настоящий `run_id` и семь выполненных шагов.
+6. Нажмите «Проверить заказ», подтвердите проверку, скачайте CSV.
+   Отправка поставщику не выполняется.
+7. «Обновить данные» сбрасывает поправки и заново считает исходный набор.
+
+## Данные и БД
+
+[data/demo/README.md](data/demo/README.md) описывает **синтетический** учебный набор:
+56 дней, стабильный спрос, недельный рисунок, рост, stockout, выброс и поставка в пути.
+Это не данные партнёра и не готовый расчёт.
+
+Источники: `data/demo/{sales,inventory,stockouts,suppliers,in_transit,products}.csv`.
+CSV не изменяются при пересчёте; override относится только к текущему запуску.
+Внутри UI поправки нескольких SKU накапливаются до «Обновить данные».
+
+- `artifacts/fruktai.sqlite` — SQLite с расчётами, причинами, историей и журналом.
+- `artifacts/runs/` — JSON исходного детерминированного этапа, до AI-обогащения.
+- Структура: [database/schema.sql](database/schema.sql).
+- Для VS Code откройте SQLite через SQLite Viewer; полезны
+  `latest_recommendations`, `supplier_order_summary`, `calculation_runs`.
+- Ключи, БД, журналы, виртуальное окружение и node_modules исключены из Git.
+
+## Docker Compose
+
+Альтернатива локальному запуску, когда работает Docker Desktop:
+
+```powershell
+docker compose up --build -d
+docker compose ps
+python scripts/smoke_test.py --base-url http://127.0.0.1:5173
+docker compose logs --tail=100 backend
+docker compose down
+```
+
+Те же адреса: UI 5173, API 8000. Не запускайте локальные процессы одновременно
+на этих портах. Каталог `./artifacts` примонтирован: БД остаётся после остановки.
+
+Compose читает корневой `.env`. Для прогона без OpenAI:
+`$env:OPENAI_EXPLANATIONS_ENABLED = "false"` перед `docker compose up`.
+Для включения задайте `true` и выполните `docker compose up -d --force-recreate backend`.
+Ключ передаётся только backend и не попадает в frontend build.
+
+## Архитектура и границы интеграции
+
+```text
+React :5173 -> Vite/nginx proxy -> FastAPI :8000
+                                    |
+                              WorkflowService
+                              /             \
+                       CSV + алгоритм     OpenAI (optional)
+                              \             /
+                                  SQLite
+```
+
+Публичные маршруты: `GET /health`, `POST /api/v1/recalculate`,
+`GET /api/v1/items/{sku}`. Контракт не переименован:
+[API](docs/API_CONTRACT.md), [CSV](docs/DATA_CONTRACT.md), [JSON Schema](contracts/README.md).
+
+В API работает только `agent/orchestrator.py`. Исходные
+`backend/calculation.py` и `backend/services/` сохранены вместе с тестами как
+наработка backend-участника; HTTP их не использует. Для запуска достаточно
+`backend/requirements.txt`; pandas/NumPy нужны только для тестов этих наработок.
+
+Происхождение: AI/БД — `83e19ff`, frontend/main — `35ee99e`
+(frontend `0c53176`), исходники backend — `9e9aa6c`.
+Backend перенесён выборочно: его `.venv`, pycache и конфликтующая реализация
+`database/` не включались. Общая БД сохранена из AI-ветки.
+
+Предфинальные ограничения: один процесс API, CSV-источник, локальный расчёт
+сезонности по последним неделям, без полноценного годового прогноза и
+клиентского анализа разовых транзакций. Категория, физическая единица и ETA
+отсутствуют в публичном контракте; UI не выдаёт их за известные.
+Массовая интеграция 1С и автоматическая отправка заказов не реализованы.
+
+Проверено при интеграции: 22 pytest-теста, HTTP-прогон с перезапуском SQLite,
+контрактные/script-тесты, frontend unit/build, браузерный E2E через установленный
+Chrome и реальный OpenAI-прогон на шести SKU.
+Compose прошёл проверку конфигурации; запуск контейнеров не проверен, поскольку
+Docker daemon на машине не был запущен.

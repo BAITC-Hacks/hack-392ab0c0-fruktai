@@ -1,0 +1,6 @@
+-r requirements.txt
+httpx==0.27.2
+pytest>=8,<10
+# Retained backend research modules and their original tests only.
+pandas>=2.2,<3
+numpy>=1.26,<3

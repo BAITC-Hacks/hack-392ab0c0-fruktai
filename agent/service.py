@@ -80,8 +80,6 @@ class WorkflowService:
         # the source sync + calculation + persistence keeps each run coherent.
         with self._recalculation_lock:
             dataset_path = self._resolve_dataset(dataset)
-            # Store only source rows that passed the database boundary validation.
-            load_csv_dataset(self.database_path, dataset_path)
             execution = run_workflow_with_details(
                 dataset_path,
                 overrides=overrides or [],
@@ -90,6 +88,9 @@ class WorkflowService:
             )
             response = execution.response
             item_details = execution.item_details
+            # Domain validation must happen before storage so invalid CSV data
+            # becomes HTTP 422, while actual database failures remain HTTP 500.
+            load_csv_dataset(self.database_path, dataset_path)
             if self.explainer is not None:
                 response, item_details = self.explainer.enrich(
                     response,

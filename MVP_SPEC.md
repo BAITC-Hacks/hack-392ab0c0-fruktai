@@ -28,6 +28,8 @@ Included:
 - per-step run journal;
 - Docker Compose or documented local commands;
 - one demo dataset and a repeatable demo scenario.
+- SQLite persistence of calculation runs and item history in the integrated build.
+- optional OpenAI explanations after deterministic validation.
 
 Not included:
 
@@ -35,7 +37,7 @@ Not included:
 - authentication, payments, 1C integration, Redis, Celery, or WebSockets;
 - probabilistic agent decisions;
 - an LLM in the quantity calculation path;
-- database persistence or production cloud infrastructure;
+- production cloud infrastructure;
 - optimization for minimum order quantity, package size, budget, or truck capacity.
 
 ## 3. Source data
@@ -103,7 +105,7 @@ The response contains explicit `reasons`; they are generated from calculation fa
 
 ## 7. Workflow
 
-The deterministic orchestrator records start time, finish time, status, and message for each step:
+The response records a run timestamp and an ordered status/message journal:
 
 1. `load_data`
 2. `validate_data`
@@ -124,4 +126,3 @@ The backend may call the orchestrator as a Python function. The smoke test calls
 - Recommendations are groupable by `supplier_id` without client-side invented fields.
 - The workflow journal contains all completed steps in execution order.
 - The project starts using the README instructions and passes the smoke test.
-

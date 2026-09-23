@@ -1,89 +1,34 @@
-# Team integration handoff
+# Интеграция в test-main
 
-## Frozen interfaces
+Основная инструкция запуска и тестирования находится в [README](../README.md).
+Ветка test-main создана от ai-and-logic и объединена с origin/main, содержащим
+актуальный frontend. Исходники backend перенесены из origin/codex/backend
+(9e9aa6c) без виртуального окружения и pycache.
 
-The MVP integration boundary is version `1.0.0`. Only the Tech Lead changes it, starting with `docs/API_CONTRACT.md`.
+## Единственный путь расчёта
 
-Backend owner must use:
+React → Vite/nginx proxy → backend.main.create_app → WorkflowService →
+agent.orchestrator → optional OpenAIExplainer → database.repository → SQLite.
 
-- `MVP_SPEC.md` for deterministic calculation policy and fallbacks;
-- `docs/API_CONTRACT.md` for Pydantic request/response models and HTTP behavior;
-- `docs/DATA_CONTRACT.md` for CSV parsing and validation;
-- `contracts/recommendation.schema.json` for the recalculation response shape;
-- `agent.WorkflowService` as the backend integration entry point;
-- `docs/BACKEND_DATABASE_INTEGRATION.md` for the exact FastAPI and SQLite handoff;
-- `scripts/test_agent_workflow.py` for local workflow regression;
-- `scripts/smoke_test.py` for integrated API acceptance.
+HTTP-контракт из API_CONTRACT.md сохранён. Дополнительные endpoints старого
+backend (summary/approve/export) в приложение не включены. Экспорт выполняется
+frontend по полученным рекомендациям и после явного подтверждения менеджера.
 
-Frontend owner must use:
+## Ответственность интеграционных файлов
 
-- `docs/API_CONTRACT.md` for TypeScript types and API calls;
-- `contracts/recommendation.schema.json` as the machine-readable response reference;
-- only `GET /health`, `POST /api/v1/recalculate`, and `GET /api/v1/items/{sku}`;
-- `dataset: "demo"` and the documented override structure.
+- backend/main.py — HTTP, запуск SQLite, перевод ошибок в 404/422/500.
+- backend/schemas.py — Pydantic wire models; прежние внутренние модели сохранены.
+- agent/service.py — расчёт, необязательное AI-обогащение, сохранение.
+- database/ — единая БД из ветки ai-and-logic.
+- frontend/src/api/ — API-клиент и преобразование для компонентов.
+- scripts/run_local.py — общий локальный запуск; AI включается флагом --ai.
+- scripts/test_full_stack.py — HTTP-прогон и перезапуск с временной БД.
+- frontend/e2e/workflow.spec.ts — браузерный тест до скачивания CSV.
+- docker-compose.yml — общий запуск backend и frontend с постоянной БД.
 
-The frontend must not invent fields. Until the backend is available, it may use exactly one mock response matching `contracts/recommendation.schema.json` and must remove or disable that mock at integration time.
+## Что проверять при следующем merge
 
-## Backend integration
-
-Recommended function-level adapter:
-
-```python
-from agent import WorkflowService
-
-service = WorkflowService(
-    data_root="data",
-    database_path="artifacts/fruktai.sqlite",
-    output_dir="artifacts/runs",
-)
-
-result = service.recalculate(
-    dataset=request.dataset,
-    overrides=[
-        override.model_dump(exclude_none=True)
-        for override in request.overrides
-    ],
-)
-
-item = service.get_item(sku)
-```
-
-Map `DataValidationError` and database validation errors to HTTP `422`. Map `DatasetNotFoundError` and `RecordNotFoundError` to HTTP `404`. Do not catch a calculation failure and return placeholder recommendations.
-
-The backend owns:
-
-- FastAPI routes and Pydantic models;
-- locating the requested dataset under a fixed data root;
-- safe dataset-name validation (no absolute paths or `..`);
-- storage of the latest successful result for item drill-down;
-- serialization of item history for `GET /api/v1/items/{sku}`;
-- `backend/Dockerfile` and Python dependencies.
-
-Detailed instructions tailored to the current backend branch are in [BACKEND_DATABASE_INTEGRATION.md](BACKEND_DATABASE_INTEGRATION.md).
-
-The demo data owner must provide all six files under `data/demo/`. At least one SKU must have a positive baseline recommendation so the override smoke test is meaningful.
-
-## Frontend integration
-
-The frontend owns:
-
-- dashboard layout and charts;
-- grouping recommendations by `supplier_id`/`supplier_name`;
-- urgency filters and summary cards;
-- the SKU drill-down using the item endpoint;
-- editable `on_hand` and `in_transit` controls that send overrides;
-- loading, empty, and API error states;
-- `frontend/Dockerfile` and build configuration.
-
-Calculations and fallback logic must not be duplicated in TypeScript.
-
-## Merge gate
-
-For each integration merge:
-
-1. Review the diff for contract field changes.
-2. Run `python scripts/test_agent_workflow.py`.
-3. Start backend and frontend using their documented commands.
-4. Run `python scripts/smoke_test.py --base-url http://localhost:8000`.
-5. Verify the dashboard uses the returned run and override result.
-6. Only then merge into the shared integration branch.
+Запустить pytest, test_full_stack, существующие script-тесты, npm test/build,
+затем test:e2e при работающем стеке. Не менять поля API без обновления контракта.
+Не подключать второй расчёт из backend/calculation.py к публичным маршрутам.
+Не коммитить .env, sqlite, artifacts, node_modules или виртуальное окружение.

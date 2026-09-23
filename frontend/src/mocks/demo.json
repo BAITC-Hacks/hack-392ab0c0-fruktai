@@ -1,0 +1,195 @@
+{
+  "run_id": "86e17181-b1b9-4093-b382-69c46e38baa0",
+  "generated_at": "2026-09-23T11:22:11.995083Z",
+  "summary": {
+    "total_items": 6,
+    "total_units_to_order": 854,
+    "high_risk_items": 6,
+    "anomalies_removed": 1,
+    "estimated_stockout_items": 1
+  },
+  "recommendations": [
+    {
+      "sku": "BULK-001",
+      "name": "Щит распределительный",
+      "supplier_id": "GAMMA",
+      "supplier_name": "Gamma",
+      "recommended_qty": 121,
+      "urgency": "high",
+      "on_hand": 2,
+      "in_transit": 0,
+      "lead_time_days": 5,
+      "avg_daily_demand": 10.64,
+      "forecast_demand": 47.86,
+      "safety_stock": 74.5,
+      "seasonality_factor": 0.9,
+      "growth_factor": 1.0,
+      "stockout_compensation": 0.0,
+      "outlier_units_removed": 500.0,
+      "days_of_cover": 0.19,
+      "reasons": [
+        "High urgency from projected lead-time coverage",
+        "Forecast 47.86 plus safety stock 74.5",
+        "No in-transit row; controlled fallback uses 0",
+        "Removed 500.0 outlier units"
+      ]
+    },
+    {
+      "sku": "GROW-001",
+      "name": "Автоматический выключатель",
+      "supplier_id": "ALPHA",
+      "supplier_name": "Alpha",
+      "recommended_qty": 182,
+      "urgency": "high",
+      "on_hand": 2,
+      "in_transit": 0,
+      "lead_time_days": 5,
+      "avg_daily_demand": 14.0,
+      "forecast_demand": 85.66,
+      "safety_stock": 98.0,
+      "seasonality_factor": 1.07,
+      "growth_factor": 1.14,
+      "stockout_compensation": 0.0,
+      "outlier_units_removed": 0.0,
+      "days_of_cover": 0.14,
+      "reasons": [
+        "High urgency from projected lead-time coverage",
+        "Forecast 85.66 plus safety stock 98.0",
+        "No in-transit row; controlled fallback uses 0"
+      ]
+    },
+    {
+      "sku": "SEASON-001",
+      "name": "Светильник светодиодный",
+      "supplier_id": "BETA",
+      "supplier_name": "Beta",
+      "recommended_qty": 153,
+      "urgency": "high",
+      "on_hand": 1,
+      "in_transit": 0,
+      "lead_time_days": 5,
+      "avg_daily_demand": 12.79,
+      "forecast_demand": 64.29,
+      "safety_stock": 89.5,
+      "seasonality_factor": 1.01,
+      "growth_factor": 1.0,
+      "stockout_compensation": 0.0,
+      "outlier_units_removed": 0.0,
+      "days_of_cover": 0.08,
+      "reasons": [
+        "High urgency from projected lead-time coverage",
+        "Forecast 64.29 plus safety stock 89.5",
+        "No in-transit row; controlled fallback uses 0"
+      ]
+    },
+    {
+      "sku": "STABLE-001",
+      "name": "Кабель силовой",
+      "supplier_id": "ALPHA",
+      "supplier_name": "Alpha",
+      "recommended_qty": 130,
+      "urgency": "high",
+      "on_hand": 2,
+      "in_transit": 0,
+      "lead_time_days": 5,
+      "avg_daily_demand": 11.0,
+      "forecast_demand": 55.0,
+      "safety_stock": 77.0,
+      "seasonality_factor": 1.0,
+      "growth_factor": 1.0,
+      "stockout_compensation": 0.0,
+      "outlier_units_removed": 0.0,
+      "days_of_cover": 0.18,
+      "reasons": [
+        "High urgency from projected lead-time coverage",
+        "Forecast 55.0 plus safety stock 77.0",
+        "No in-transit row; controlled fallback uses 0"
+      ]
+    },
+    {
+      "sku": "STOCKOUT-001",
+      "name": "Розетка накладная",
+      "supplier_id": "GAMMA",
+      "supplier_name": "Gamma",
+      "recommended_qty": 118,
+      "urgency": "high",
+      "on_hand": 1,
+      "in_transit": 0,
+      "lead_time_days": 5,
+      "avg_daily_demand": 10.87,
+      "forecast_demand": 42.7,
+      "safety_stock": 76.12,
+      "seasonality_factor": 0.79,
+      "growth_factor": 1.0,
+      "stockout_compensation": 29.46,
+      "outlier_units_removed": 0.0,
+      "days_of_cover": 0.09,
+      "reasons": [
+        "High urgency from projected lead-time coverage",
+        "Forecast 42.7 plus safety stock 76.12",
+        "No in-transit row; controlled fallback uses 0",
+        "Estimated 29.46 units lost during stockouts"
+      ]
+    },
+    {
+      "sku": "TRANSIT-001",
+      "name": "Клемма соединительная",
+      "supplier_id": "DELTA",
+      "supplier_name": "Delta",
+      "recommended_qty": 150,
+      "urgency": "high",
+      "on_hand": 2,
+      "in_transit": 100,
+      "lead_time_days": 5,
+      "avg_daily_demand": 21.0,
+      "forecast_demand": 105.0,
+      "safety_stock": 147.0,
+      "seasonality_factor": 1.0,
+      "growth_factor": 1.0,
+      "stockout_compensation": 0.0,
+      "outlier_units_removed": 0.0,
+      "days_of_cover": 4.86,
+      "reasons": [
+        "High urgency from projected lead-time coverage",
+        "Forecast 105.0 plus safety stock 147.0"
+      ]
+    }
+  ],
+  "agent_steps": [
+    {
+      "step": "load_data",
+      "status": "completed",
+      "message": "Loaded six CSV files from data\\demo"
+    },
+    {
+      "step": "validate_data",
+      "status": "completed",
+      "message": "Validated 6 products and 0 overrides"
+    },
+    {
+      "step": "detect_outliers",
+      "status": "completed",
+      "message": "Marked 1 daily sales observations as outliers"
+    },
+    {
+      "step": "estimate_lost_demand",
+      "status": "completed",
+      "message": "Estimated lost demand for 1 products"
+    },
+    {
+      "step": "calculate_recommendations",
+      "status": "completed",
+      "message": "Calculated 6 recommendations"
+    },
+    {
+      "step": "validate_result",
+      "status": "completed",
+      "message": "Validated 6 recommendations"
+    },
+    {
+      "step": "save_result",
+      "status": "completed",
+      "message": "Saved calculation run 86e17181-b1b9-4093-b382-69c46e38baa0"
+    }
+  ]
+}
